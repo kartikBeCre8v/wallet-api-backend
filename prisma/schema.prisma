@@ -3,8 +3,177 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model admin {
+  id         BigInt   @id @default(autoincrement())
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  userId     String?  @db.VarChar
+}
+
+model attempt_answers {
+  id          Int      @id @default(autoincrement())
+  attempt_id  Int
+  question_id Int
+  option_id   Int?
+  is_correct  Boolean?
+
+  @@index([id], map: "ix_attempt_answers_id")
+}
+
+model certificates {
+  id              Int       @id @default(autoincrement())
+  user_id         Int
+  course_id       Int
+  issued_at       DateTime? @db.Timestamp(6)
+  certificate_url String?   @db.VarChar
+
+  @@index([id], map: "ix_certificates_id")
+}
+
+model courses {
+  id          Int       @id @default(autoincrement())
+  title       String    @db.VarChar
+  description String?
+  thumbnail   String?   @db.VarChar
+  category    String?   @db.VarChar
+  created_by  Int?
+  created_at  DateTime? @db.Timestamp(6)
+  is_active   Boolean?
+  course_code String?   @unique(map: "ix_courses_course_code") @db.VarChar(48)
+
+  @@index([id], map: "ix_courses_id")
+}
+
+model creative_submissions {
+  id           Int       @id @default(autoincrement())
+  user_id      Int
+  course_id    Int
+  module_id    Int?
+  file_url     String    @db.VarChar
+  file_type    String?   @db.VarChar
+  submitted_at DateTime? @db.Timestamp(6)
+
+  @@index([id], map: "ix_creative_submissions_id")
+}
+
+model enrollments {
+  id          Int       @id @default(autoincrement())
+  user_id     Int
+  course_id   Int
+  enrolled_at DateTime? @db.Timestamp(6)
+
+  @@index([id], map: "ix_enrollments_id")
+}
+
+model lesson_progress {
+  id           Int       @id @default(autoincrement())
+  user_id      Int
+  lesson_id    Int
+  completed    Boolean?
+  completed_at DateTime? @db.Timestamp(6)
+
+  @@index([id], map: "ix_lesson_progress_id")
+}
+
+model lessons {
+  id           Int      @id @default(autoincrement())
+  course_id    Int
+  title        String   @db.VarChar
+  content      String?
+  video_url    String?  @db.VarChar
+  order        Int?
+  module_id    Int?
+  is_published Boolean? @default(true)
+
+  @@index([id], map: "ix_lessons_id")
+}
+
+model modules {
+  id        Int    @id @default(autoincrement())
+  course_id Int
+  title     String @db.VarChar
+  order     Int?
+
+  @@index([id], map: "ix_modules_id")
+}
+
+model notifications {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  message    String    @db.VarChar
+  is_read    Boolean?
+  created_at DateTime? @db.Timestamp(6)
+
+  @@index([id], map: "ix_notifications_id")
+}
+
+model options {
+  id          Int      @id @default(autoincrement())
+  question_id Int
+  text        String   @db.VarChar
+  is_correct  Boolean?
+
+  @@index([id], map: "ix_options_id")
+}
+
+model progress {
+  id           Int       @id @default(autoincrement())
+  user_id      Int
+  lesson_id    Int
+  completed    Boolean?
+  completed_at DateTime? @db.Timestamp(6)
+
+  @@index([id], map: "ix_progress_id")
+}
+
+model questions {
+  id      Int    @id @default(autoincrement())
+  quiz_id Int
+  text    String
+  order   Int?
+
+  @@index([id], map: "ix_questions_id")
+}
+
+model quiz_attempts {
+  id           Int       @id @default(autoincrement())
+  quiz_id      Int
+  user_id      Int
+  score        Int?
+  total        Int?
+  submitted_at DateTime? @db.Timestamp(6)
+
+  @@index([id], map: "ix_quiz_attempts_id")
+}
+
+model quizzes {
+  id          Int       @id @default(autoincrement())
+  course_id   Int
+  module_id   Int?
+  title       String    @db.VarChar
+  description String?
+  created_at  DateTime? @db.Timestamp(6)
+
+  @@index([id], map: "ix_quizzes_id")
+}
+
+model users {
+  id            Int      @id @default(autoincrement())
+  name          String?  @db.VarChar
+  email         String?  @unique(map: "ix_users_email") @db.VarChar
+  password      String?  @db.VarChar
+  role          String?  @db.VarChar
+  auth_provider String?  @default("local") @db.VarChar
+  is_blocked    Boolean? @default(false)
+  phone         String?  @db.VarChar
+  auth_uid      String?  @unique(map: "ix_users_auth_uid") @db.VarChar(36)
+
+  @@index([id], map: "ix_users_id")
 }
 
 enum UserStatus {
@@ -55,8 +224,6 @@ model User {
   updatedAt DateTime @updatedAt
 
   wallet Wallet?
-  // ✅ ADD THIS LINE
-  admin  Admin?
 }
 
 model Wallet {
@@ -179,17 +346,6 @@ model SystemConfig {
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
-}
-
-model Admin {
-  id     String  @id @default(uuid())
-  userId String? @unique
-
-  user User? @relation(fields: [userId], references: [id])
-
-  createdAt DateTime @default(now())
-
-  @@map("admin")
 }
 
 model EarningRule {
