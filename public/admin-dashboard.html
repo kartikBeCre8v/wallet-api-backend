@@ -1210,7 +1210,7 @@ async function loadRecentTransactions() {
   try {
     const { data } = await supabaseClient
   .from('Transaction')
-  .select('*, wallet:Wallet(id, userId)')
+  .select('*, wallet(id, userId)')
   .order('createdAt', { ascending: false })
   .limit(10);
     const tbody = document.getElementById('recentTxTable');
