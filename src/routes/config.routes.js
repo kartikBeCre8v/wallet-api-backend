@@ -9,9 +9,15 @@ router.get("/", async (req, res) => {
 
     const formatted = {};
 
-    configs.forEach(item => {
-      formatted[item.key] = item.value;
-    });
+    // configs.forEach(item => {
+    //   formatted[item.key] = item.value;
+    // });
+
+    res.json({
+  DAILY_CAP: config.dailyGamingCap,      // ✅ actual field naam
+  DAILY_LOGIN_REWARD: config.starterCoinsAmount,
+  SESSION_REWARD: 10,
+});
 
     res.json(formatted);
 
