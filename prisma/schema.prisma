@@ -176,6 +176,119 @@ model users {
   @@index([id], map: "ix_users_id")
 }
 
+model User {
+  id                  String               @id @default(uuid())
+  email               String               @unique
+  childName           String
+  childAge            Int
+  parentPhone         String               @unique
+  shopifyCustomerId   String?
+  lmsUserId           String?
+  gamesUserId         String?
+  promoCardRedeemed   Boolean?             @default(false)
+  starterCoinCredited Boolean?             @default(false)
+  status              UserStatus?          @default(ACTIVE)
+  preferredLanguage   String?              @default("en")
+  createdAt           DateTime?            @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime?            @default(now()) @updatedAt @db.Timestamp(6)
+  DailyRewardTracker  DailyRewardTracker[]
+  LoginStreak         LoginStreak?
+  PlaySession         PlaySession[]
+  wallet              Wallet?
+}
+
+model Wallet {
+  id             String        @id @default(uuid())
+  userId         String        @unique
+  balance        Int?          @default(0)
+  lifetimeEarned Int?          @default(0)
+  lifetimeSpent  Int?          @default(0)
+  lastActivityAt DateTime?     @default(now()) @db.Timestamp(6)
+  createdAt      DateTime?     @default(now()) @db.Timestamp(6)
+  updatedAt      DateTime?     @default(now()) @updatedAt @db.Timestamp(6)
+  transactions   Transaction[]
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model Transaction {
+  id             String          @id @default(uuid())
+  walletId       String
+  type           TransactionType
+  amount         Int
+  source         String
+  sourcePlatform SourcePlatform
+  referenceId    String?
+  description    String
+  metadata       Json?
+  balanceAfter   Int
+  idempotencyKey String?         @unique
+  createdAt      DateTime?       @default(now()) @db.Timestamp(6)
+  wallet         Wallet          @relation(fields: [walletId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model DailyRewardTracker {
+  id          String    @id @default(uuid())
+  userId      String
+  rewardType  String
+  rewardDate  DateTime  @db.Timestamp(6)
+  referenceId String?
+  createdAt   DateTime? @default(now()) @db.Timestamp(6)
+  User        User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "dailyrewardtracker_userid_fkey")
+}
+
+model LoginStreak {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  currentStreak Int?      @default(0)
+  lastLoginDate DateTime? @db.Timestamp(6)
+  createdAt     DateTime? @default(now()) @db.Timestamp(6)
+  updatedAt     DateTime? @default(now()) @updatedAt @db.Timestamp(6)
+  User          User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "loginstreak_userid_fkey")
+}
+
+model PlaySession {
+  id              String    @id @default(uuid())
+  userId          String
+  startedAt       DateTime  @db.Timestamp(6)
+  endedAt         DateTime? @db.Timestamp(6)
+  durationSeconds Int?
+  rewarded        Boolean?  @default(false)
+  createdAt       DateTime? @default(now()) @db.Timestamp(6)
+  User            User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "playsession_userid_fkey")
+}
+
+model SystemConfig {
+  id                   String    @id @default(uuid())
+  coinValuePaise       Int?      @default(10)
+  redemptionCapPercent Int?      @default(20)
+  inactivityExpiryDays Int?      @default(365)
+  starterCoinsAmount   Int?      @default(200)
+  dailyGamingCap       Int?      @default(200)
+  brandEventActive     Boolean?  @default(false)
+  brandEventMultiplier Float?    @default(1.0)
+  brandEventLabel      String?
+  brandEventUntil      DateTime? @db.Timestamp(6)
+  createdAt            DateTime? @default(now()) @db.Timestamp(6)
+  updatedAt            DateTime? @default(now()) @updatedAt @db.Timestamp(6)
+}
+
+model EarningRule {
+  id                 String          @id @default(uuid())
+  ruleKey            String          @unique
+  displayName        String
+  category           EarningCategory
+  baseCoins          Int
+  multiplier         Float?          @default(1.0)
+  dailyCap           Int?
+  totalCap           Int?
+  requiresModeration Boolean?        @default(false)
+  isActive           Boolean?        @default(true)
+  activeFrom         DateTime?       @db.Timestamp(6)
+  activeUntil        DateTime?       @db.Timestamp(6)
+  createdAt          DateTime?       @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime?       @default(now()) @updatedAt @db.Timestamp(6)
+}
+
 enum UserStatus {
   ACTIVE
   SUSPENDED
@@ -204,179 +317,4 @@ enum EarningCategory {
   LEARNING
   ADVOCACY
   PURCHASE
-}
-
-model User {
-  id                  String     @id @default(uuid())
-  email               String     @unique
-  childName           String
-  childAge            Int
-  parentPhone         String     @unique
-  shopifyCustomerId   String?
-  lmsUserId           String?
-  gamesUserId         String?
-  promoCardRedeemed   Boolean    @default(false)
-  starterCoinCredited Boolean    @default(false)
-  status              UserStatus @default(ACTIVE)
-  preferredLanguage   String     @default("en")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  wallet Wallet?
-}
-
-model Wallet {
-  id     String @id @default(uuid())
-  userId String @unique
-
-  balance Int @default(0)
-
-  lifetimeEarned Int @default(0)
-  lifetimeSpent  Int @default(0)
-
-  lastActivityAt DateTime @default(now())
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id])
-
-  transactions Transaction[]
-}
-
-model Transaction {
-  id String @id @default(uuid())
-
-  walletId String
-
-  type TransactionType
-
-  amount Int
-
-  source String
-
-  sourcePlatform SourcePlatform
-
-  referenceId String?
-
-  description String
-
-  metadata Json?
-
-  balanceAfter Int
-
-  idempotencyKey String? @unique
-
-  createdAt DateTime @default(now())
-
-  wallet Wallet @relation(fields: [walletId], references: [id])
-
-  @@index([walletId])
-  @@index([referenceId])
-  @@index([createdAt])
-}
-
-model DailyRewardTracker {
-  id String @id @default(uuid())
-
-  userId String
-
-  rewardType String
-
-  rewardDate DateTime
-
-  referenceId String?
-
-  createdAt DateTime @default(now())
-
-  @@index([userId, rewardType, rewardDate])
-}
-
-model LoginStreak {
-  id String @id @default(uuid())
-
-  userId String @unique
-
-  currentStreak Int @default(0)
-
-  lastLoginDate DateTime?
-
-  createdAt DateTime @default(now())
-
-  updatedAt DateTime @updatedAt
-}
-
-model PlaySession {
-  id String @id @default(uuid())
-
-  userId    String
-  startedAt DateTime
-
-  endedAt         DateTime?
-  durationSeconds Int?
-  rewarded        Boolean   @default(false)
-
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-}
-
-model SystemConfig {
-  id String @id @default(uuid())
-
-  coinValuePaise Int @default(10)
-
-  redemptionCapPercent Int @default(20)
-
-  inactivityExpiryDays Int @default(365)
-
-  starterCoinsAmount Int @default(200)
-
-  dailyGamingCap Int @default(200)
-
-  brandEventActive Boolean @default(false)
-
-  brandEventMultiplier Float @default(1.0)
-
-  brandEventLabel String?
-
-  brandEventUntil DateTime?
-
-  createdAt DateTime @default(now())
-
-  updatedAt DateTime @updatedAt
-}
-
-model EarningRule {
-  id String @id @default(uuid())
-
-  ruleKey String @unique
-
-  displayName String
-
-  category EarningCategory
-
-  baseCoins Int
-
-  multiplier Float @default(1.0)
-
-  dailyCap Int?
-
-  totalCap Int?
-
-  requiresModeration Boolean @default(false)
-
-  isActive Boolean @default(true)
-
-  activeFrom DateTime?
-
-  activeUntil DateTime?
-
-  createdAt DateTime @default(now())
-
-  updatedAt DateTime @updatedAt
-
-  @@index([ruleKey])
-  @@index([category])
 }
