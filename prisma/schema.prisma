@@ -181,7 +181,7 @@ model User {
   email               String               @unique
   childName           String
   childAge            Int
-  parentPhone         String               @unique
+  parentPhone         String              
   shopifyCustomerId   String?
   lmsUserId           String?
   gamesUserId         String?
