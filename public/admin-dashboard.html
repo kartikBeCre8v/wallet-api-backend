@@ -1023,7 +1023,7 @@ function toast(msg, type='info') {
 // ============================================================
 // AUTH
 // ============================================================
-async function doLogin() {
+window.doLogin = async function () {
   const email = document.getElementById('loginEmail').value.trim();
   const pass = document.getElementById('loginPassword').value;
   const btn = document.getElementById('loginBtn');
@@ -1059,7 +1059,7 @@ if (!adminData) {
     btn.disabled = false; btn.textContent = 'Sign In to Dashboard';
   }
 }
-  window.doLogin = doLogin;
+  // window.doLogin = doLogin;
 
 async function checkSession() {
   const { data } = await supabaseClient.auth.getSession();
@@ -1106,7 +1106,7 @@ document.getElementById("r_session").value =
 
 }
 
-async function doLogout() {
+window.doLogout = async function () {
   await supabaseClient.auth.signOut();
   document.getElementById('app').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
