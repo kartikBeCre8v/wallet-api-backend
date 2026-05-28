@@ -187,12 +187,7 @@ const rewardAmount = Number(amount);
       },
       idempotencyKey: `${req.user.id}-${game}-${Date.now()}`
     });
-    io.to(req.user.id).emit(
-  "wallet-updated",
-  {
-    balance: result.balance
-  }
-);
+
     return res.json(result);
 
   } catch (error) {
@@ -437,12 +432,7 @@ amount: rewardAmount,
 
       const streak =
         await updateLoginStreak(userId);
-io.to(userId).emit(
-  "wallet-updated",
-  {
-    balance: rewardResult.balance
-  }
-);
+
       return res.json({
         success: true,
         streak,
@@ -492,13 +482,14 @@ router.post(
         });
 
       if (existing) {
+
         return res.json({
           message: 'Already rewarded today'
         });
 
       }
 
-     const rewardResult = await rewardUser({
+      await rewardUser({
 
         userId,
 
@@ -531,12 +522,7 @@ router.post(
           referenceId: game
         }
       });
-io.to(userId).emit(
-  "wallet-updated",
-  {
-    balance: rewardResult.balance
-  }
-);
+
       return res.json({
         success: true
       });
@@ -582,6 +568,7 @@ router.post(
         });
 
       if (existing) {
+
         return res.json({
           message: 'Already rewarded'
         });
@@ -630,12 +617,7 @@ amount: rewardAmount,
           referenceId
         }
       });
-io.to(userId).emit(
-  "wallet-updated",
-  {
-    balance: rewardResult.balance
-  }
-);
+
       return res.json({
         success: true,
         balance: rewardResult.balance
@@ -669,6 +651,7 @@ router.post(
           userId,
           game
         );
+
       return res.json(session);
 
     } catch (err) {
@@ -693,7 +676,6 @@ router.post(
       const userId = req.user.id;
 
       const { sessionId } = req.body;
-      let rewardResult= null;
 
       const session =
         await endSession(sessionId);
@@ -738,7 +720,7 @@ const rewardAmount =
   Number(rule?.baseCoins || 10);
         if (rewardedToday < 5) {
           
-          rewardResult = await rewardUser({
+          await rewardUser({
 
             userId,
 
@@ -775,14 +757,7 @@ const rewardAmount =
         }
 
       }
-      if(rewardResult){
-io.to(userId).emit(
-  "wallet-updated",
-  {
-    balance: rewardResult.balance
-  }
-);
-      }
+
       return res.json({
         success: true
       });
