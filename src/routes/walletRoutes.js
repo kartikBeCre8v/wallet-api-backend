@@ -292,7 +292,7 @@ router.post(
 
       // REALTIME UPDATE
       io.to(req.user.id).emit(
-        "wallet-updated",
+        "walletUpdated",
         {
           balance: newBalance
         }
@@ -390,7 +390,7 @@ router.post(
    const rule =
   await prisma.earningRule.findFirst({
     where: {
-      ruleKey: "DAILY_LOGIN"
+      ruleKey: "daily_login"
     }
   });
 
@@ -709,15 +709,7 @@ router.post(
               }
             }
           });
-       const rule =
-  await prisma.earningRule.findFirst({
-    where: {
-      ruleKey: "GAME_SESSION"
-    }
-  });
-
-const rewardAmount =
-  Number(rule?.baseCoins || 10);
+        const rewardAmount = await getConfig("SESSION_REWARD");
         if (rewardedToday < 5) {
           
           await rewardUser({
