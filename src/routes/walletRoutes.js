@@ -390,7 +390,7 @@ router.post(
    const rule =
   await prisma.earningRule.findFirst({
     where: {
-      ruleKey: "daily_login"
+      ruleKey: "DAILY_LOGIN"
     }
   });
 
@@ -709,7 +709,15 @@ router.post(
               }
             }
           });
-        const rewardAmount = await getConfig("SESSION_REWARD");
+       const rule =
+  await prisma.earningRule.findFirst({
+    where: {
+      ruleKey: "GAME_SESSION"
+    }
+  });
+
+const rewardAmount =
+  Number(rule?.baseCoins || 10);
         if (rewardedToday < 5) {
           
           await rewardUser({

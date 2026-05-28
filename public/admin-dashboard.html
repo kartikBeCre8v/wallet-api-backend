@@ -1093,7 +1093,7 @@ async function loadSystemConfig() {
   data.DAILY_CAP;
 
 document.getElementById("r_daily_login").value =
-  data.DAILY_LOGIN_REWARD;
+  data.DAILY_LOGIN;
 
 document.getElementById("r_session").value =
   data.SESSION_REWARD;
@@ -1252,7 +1252,7 @@ const perfectLevel =
 
 applyConfigToUI({
 
-  daily_login_reward:
+  daily_login:
     dailyLogin?.baseCoins || 0,
 
   session_reward:
@@ -1311,14 +1311,14 @@ function applyConfigToUI(d) {
     const pct = ((val - el.min) / (el.max - el.min)) * 100;
     el.style.setProperty('--pct', pct + '%');
   };
-  setRange('r_daily_login', d.daily_login_reward||20);
+  setRange('r_daily_login', d.daily_login||20);
   setRange('r_session', d.session_reward||10);
   setRange('r_streak_bonus', d.streak_bonus||50);
   setRange('r_daily_cap', d.daily_cap||200);
   setRange('r_max_streak', d.max_streak_days||30);
   setRange('r_session_time', d.session_time_minutes||10);
 
-  document.getElementById('v_daily_login').textContent = d.daily_login_reward||20;
+  document.getElementById('v_daily_login').textContent = d.daily_login||20;
   document.getElementById('v_session').textContent = d.session_reward||10;
   document.getElementById('v_streak_bonus').textContent = d.streak_bonus||50;
   document.getElementById('v_daily_cap').textContent = d.daily_cap||200;
@@ -1826,7 +1826,7 @@ document.getElementById('adjustAction').addEventListener('change', function() {
 });
 
 checkSession();
-loadSystemConfig();
+//loadSystemConfig();
 // loadEvents();
 </script>
 </body>
