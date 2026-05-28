@@ -187,7 +187,18 @@ const rewardAmount = Number(amount);
       },
       idempotencyKey: `${req.user.id}-${game}-${Date.now()}`
     });
-
+    io.to(req.user.id).emit(
+  "walletUpdated",
+  {
+    balance: result.balance
+  }
+);
+io.to(userId).emit(
+  "walletUpdated",
+  {
+    balance: rewardResult.balance
+  }
+);
     return res.json(result);
 
   } catch (error) {
@@ -381,7 +392,12 @@ router.post(
         });
 
       if (existing) {
-
+io.to(userId).emit(
+  "walletUpdated",
+  {
+    balance: rewardResult.balance
+  }
+);
         return res.json({
           message: 'Already claimed today'
         });
@@ -390,7 +406,7 @@ router.post(
    const rule =
   await prisma.earningRule.findFirst({
     where: {
-      ruleKey: "daily_login"
+      ruleKey: "DAILY_LOGIN"
     }
   });
 
@@ -432,7 +448,12 @@ amount: rewardAmount,
 
       const streak =
         await updateLoginStreak(userId);
-
+io.to(userId).emit(
+  "walletUpdated",
+  {
+    balance: rewardResult.balance
+  }
+);
       return res.json({
         success: true,
         streak,
@@ -482,14 +503,19 @@ router.post(
         });
 
       if (existing) {
-
+io.to(userId).emit(
+  "walletUpdated",
+  {
+    balance: rewardResult.balance
+  }
+);
         return res.json({
           message: 'Already rewarded today'
         });
 
       }
 
-      await rewardUser({
+     const rewardResult = await rewardUser({
 
         userId,
 
@@ -522,7 +548,12 @@ router.post(
           referenceId: game
         }
       });
-
+io.to(userId).emit(
+  "walletUpdated",
+  {
+    balance: rewardResult.balance
+  }
+);
       return res.json({
         success: true
       });
@@ -568,7 +599,12 @@ router.post(
         });
 
       if (existing) {
-
+io.to(userId).emit(
+  "walletUpdated",
+  {
+    balance: rewardResult.balance
+  }
+);
         return res.json({
           message: 'Already rewarded'
         });
@@ -617,7 +653,12 @@ amount: rewardAmount,
           referenceId
         }
       });
-
+io.to(userId).emit(
+  "walletUpdated",
+  {
+    balance: rewardResult.balance
+  }
+);
       return res.json({
         success: true,
         balance: rewardResult.balance
@@ -651,7 +692,12 @@ router.post(
           userId,
           game
         );
-
+io.to(userId).emit(
+  "walletUpdated",
+  {
+    balance: rewardResult.balance
+  }
+);
       return res.json(session);
 
     } catch (err) {
@@ -709,10 +755,18 @@ router.post(
               }
             }
           });
-        const rewardAmount = await getConfig("SESSION_REWARD");
+       const rule =
+  await prisma.earningRule.findFirst({
+    where: {
+      ruleKey: "GAME_SESSION"
+    }
+  });
+
+const rewardAmount =
+  Number(rule?.baseCoins || 10);
         if (rewardedToday < 5) {
           
-          await rewardUser({
+          const rewardResult = await rewardUser({
 
             userId,
 
@@ -749,7 +803,12 @@ router.post(
         }
 
       }
-
+io.to(userId).emit(
+  "walletUpdated",
+  {
+    balance: rewardResult.balance
+  }
+);
       return res.json({
         success: true
       });

@@ -1,58 +1,28 @@
 import { prisma } from '../utils/prisma.js';
-import { io } from '../index.js';
+// import { sendBalanceUpdate } from '../websocket/socket.js';
 
-export const creditCoins = async (
-  userId,
-  amount,
-  description
-) => {
+export const creditCoins = async (userId, amount, description) => {
+  const wallet = await prisma.wallet.findUnique({
+    where: { userId }
+  });
 
-  const wallet =
-    await prisma.wallet.findUnique({
-      where: { userId }
-    });
-
-  if (!wallet) {
-    throw new Error("Wallet not found");
-  }
-
-  const newBalance =
-    Number(wallet.balance) +
-    Number(amount);
+  const newBalance = wallet.balance + amount;
 
   await prisma.$transaction([
-
     prisma.wallet.update({
       where: { userId },
-
-      data: {
-        balance: newBalance
-      }
+      data: { balance: newBalance }
     }),
-
     prisma.transaction.create({
       data: {
         walletId: wallet.id,
-
         type: "EARN",
-
-        amount: Number(amount),
-
+        amount,
         description,
-
         balanceAfter: newBalance
       }
     })
-
   ]);
-
-  // REALTIME SOCKET UPDATE
-  io.to(userId).emit(
-    "wallet-updated",
-    {
-      balance: newBalance
-    }
-  );
-
+  sendBalanceUpdate(userId, newBalance);
   return newBalance;
 };
