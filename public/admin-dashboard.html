@@ -1083,7 +1083,7 @@ if (!adminData) {
   await supabaseClient.auth.signOut();
   throw new Error('Access denied. You are not an admin.');
 }
-    //startApp(data.user);
+    startApp(data.user);
   } catch (err) {
     errEl.textContent = err.message || 'Login failed';
   } finally {
