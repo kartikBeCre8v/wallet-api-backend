@@ -1330,55 +1330,48 @@ high_score_enabled: highScore?.isActive ?? true,
 }
 
 function applyConfigToUI(d) {
+  // setRange aur setToggle pehle define karo
   const setRange = (id, val) => {
     const el = document.getElementById(id); if(!el) return;
     el.value = val;
     const pct = ((val - el.min) / (el.max - el.min)) * 100;
     el.style.setProperty('--pct', pct + '%');
   };
+  const setToggle = (id, val) => {
+    const el = document.getElementById(id); if(!el) return;
+    el.classList.toggle('on', !!val);
+  };
+
   setRange('r_daily_login', d.daily_login||20);
   setRange('r_session', d.session_reward||10);
-  setRange('r_streak_bonus', d.streak_bonus||50);
+  setRange('r_perfect_level', d.streak_bonus||50);
+  setRange('r_high_score', d.high_score||25);
   setRange('r_daily_cap', d.daily_cap||200);
   setRange('r_max_streak', d.max_streak_days||30);
   setRange('r_session_time', d.session_time_minutes||10);
 
   document.getElementById('v_daily_login').textContent = d.daily_login||20;
   document.getElementById('v_session').textContent = d.session_reward||10;
-  document.getElementById('v_streak_bonus').textContent = d.streak_bonus||50;
+  document.getElementById('v_perfect_level').textContent = d.streak_bonus||50;
+  document.getElementById('v_high_score').textContent = d.high_score||25;
   document.getElementById('v_daily_cap').textContent = d.daily_cap||200;
   document.getElementById('v_max_streak').textContent = d.max_streak_days||30;
   document.getElementById('v_session_time').textContent = d.session_time_minutes||10;
-  // Existing setRange calls ke baad yeh add karo:
-setRange('r_high_score', d.high_score || 25);
-document.getElementById('v_high_score').textContent = d.high_score || 25;
-
-// Preview update mein:
-document.getElementById('prev_high_score').textContent = get('r_high_score') + ' 🪙';
-
-// Toggle mein:
-setToggle('t_high_score_enabled', d.high_score_enabled !== false);
-
-// toggleState mein:
-high_score_enabled: d.high_score_enabled !== false,
 
   updatePreview();
 
-  const setToggle = (id, val) => {
-    const el = document.getElementById(id); if(!el) return;
-    el.classList.toggle('on', !!val);
-  };
   setToggle('t_rewards_enabled', d.rewards_enabled!==false);
   setToggle('t_daily_login_enabled', d.daily_login_enabled!==false);
   setToggle('t_streak_enabled', d.streak_enabled!==false);
+  setToggle('t_high_score_enabled', d.high_score_enabled!==false);
 
   toggleState = {
     rewards_enabled: d.rewards_enabled!==false,
     daily_login_enabled: d.daily_login_enabled!==false,
     streak_enabled: d.streak_enabled!==false,
+    high_score_enabled: d.high_score_enabled!==false,
   };
 }
-
 function updateRange(input, valId) {
   const pct = ((input.value - input.min) / (input.max - input.min)) * 100;
   input.style.setProperty('--pct', pct + '%');
@@ -1461,13 +1454,13 @@ async function saveRewardConfig() {
 
       {
         ruleKey: "PERFECT_LEVEL",
-        baseCoins: Number(
+       baseCoins: Number(
           document.getElementById(
-            "r_streak_bonus"
+            "r_perfect_level"
           ).value
         ),
         isActive:
-          toggleState.streak_enabled
+          toggleState.streak_enabled || true
       },
       // Existing updates array mein yeh object add karo:
 {
