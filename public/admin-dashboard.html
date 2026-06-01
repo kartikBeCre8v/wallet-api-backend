@@ -655,22 +655,22 @@ td { padding:12px 16px; font-size:13.5px; vertical-align:middle; }
                   <span class="range-val" id="v_daily_login">—</span>
                 </div>
               </div>
+              <!-- NAYA - yeh daal do -->
+<div class="form-group">
+  <div class="form-label">Perfect Level Reward</div>
+  <div class="range-row">
+    <input type="range" min="0" max="200" step="5" id="r_streak_bonus" oninput="updateRange(this,'v_streak_bonus');markUnsaved()" />
+    <span class="range-val" id="v_streak_bonus">—</span>
+  </div>
+</div>
 
-              <div class="form-group">
-                <div class="form-label">Session Reward</div>
-                <div class="range-row">
-                  <input type="range" min="0" max="100" step="5" id="r_session" oninput="updateRange(this,'v_session');markUnsaved()" />
-                  <span class="range-val" id="v_session">—</span>
-                </div>
-              </div>
-
-              <div class="form-group">
-                <div class="form-label">Streak Bonus</div>
-                <div class="range-row">
-                  <input type="range" min="0" max="200" step="5" id="r_streak_bonus" oninput="updateRange(this,'v_streak_bonus');markUnsaved()" />
-                  <span class="range-val" id="v_streak_bonus">—</span>
-                </div>
-              </div>
+<div class="form-group">
+  <div class="form-label">High Score Reward</div>
+  <div class="range-row">
+    <input type="range" min="0" max="200" step="5" id="r_high_score" oninput="updateRange(this,'v_high_score');markUnsaved()" />
+    <span class="range-val" id="v_high_score">—</span>
+  </div>
+</div>
             </div>
 
             <div class="card">
@@ -724,6 +724,14 @@ td { padding:12px 16px; font-size:13.5px; vertical-align:middle; }
                 </div>
                 <div class="toggle" id="t_streak_enabled" onclick="toggleSwitch(this,'streak_enabled')"></div>
               </div>
+              <!-- Streak Enabled toggle ke baad yeh add karo -->
+<div class="toggle-row">
+  <div class="toggle-info">
+    <div class="tl">High Score Reward</div>
+    <div class="ts">Bonus coins for beating high score</div>
+  </div>
+  <div class="toggle" id="t_high_score_enabled" onclick="toggleSwitch(this,'high_score_enabled')"></div>
+</div>
             </div>
           </div>
 
@@ -734,6 +742,8 @@ td { padding:12px 16px; font-size:13.5px; vertical-align:middle; }
                 <div class="preview-row"><span>Daily Login</span><span id="prev_daily_login">—</span></div>
                 <div class="preview-row"><span>Per Session</span><span id="prev_session">—</span></div>
                 <div class="preview-row"><span>Streak Bonus</span><span id="prev_streak">—</span></div>
+                <!-- Streak row ke baad yeh add karo -->
+                <div class="preview-row"><span>High Score</span><span id="prev_high_score">—</span></div>
                 <div class="preview-row"><span>Daily Cap</span><span id="prev_cap">—</span></div>
                 <div class="preview-row"><span>Max Streak</span><span id="prev_max_streak">—</span></div>
                 <div class="preview-row"><span>Session Time</span><span id="prev_session_time">—</span></div>
@@ -1250,6 +1260,10 @@ const gameSession =
 const perfectLevel =
   data.find(r => r.ruleKey === "PERFECT_LEVEL");
 
+// Iske baad HIGH_SCORE bhi add karo:
+const highScore = 
+  data.find(r => r.ruleKey === "HIGH_SCORE");
+
 applyConfigToUI({
 
   daily_login:
@@ -1260,6 +1274,9 @@ applyConfigToUI({
 
   streak_bonus:
     perfectLevel?.baseCoins || 0,
+    
+    high_score: highScore?.baseCoins || 0,
+high_score_enabled: highScore?.isActive ?? true,
 
   daily_cap:
     gameSession?.dailyCap || 0,
@@ -1317,6 +1334,9 @@ function applyConfigToUI(d) {
   setRange('r_daily_cap', d.daily_cap||200);
   setRange('r_max_streak', d.max_streak_days||30);
   setRange('r_session_time', d.session_time_minutes||10);
+  setRange('r_high_score', d.high_score || 25);
+setToggle('t_high_score_enabled', d.high_score_enabled !== false);
+high_score_enabled: d.high_score_enabled !== false,
 
   document.getElementById('v_daily_login').textContent = d.daily_login||20;
   document.getElementById('v_session').textContent = d.session_reward||10;
@@ -1324,6 +1344,8 @@ function applyConfigToUI(d) {
   document.getElementById('v_daily_cap').textContent = d.daily_cap||200;
   document.getElementById('v_max_streak').textContent = d.max_streak_days||30;
   document.getElementById('v_session_time').textContent = d.session_time_minutes||10;
+  document.getElementById('v_high_score').textContent = d.high_score || 25;
+  document.getElementById('prev_high_score').textContent = get('r_high_score') + ' 🪙';
 
   updatePreview();
 
@@ -1354,6 +1376,9 @@ function updatePreview() {
   const dl = get('r_daily_login'), sr = get('r_session'),
         sb2 = get('r_streak_bonus'), cap = get('r_daily_cap'),
         ms = get('r_max_streak'), st = get('r_session_time');
+        // Existing preview lines ke baad:
+const hs = get('r_high_score');
+document.getElementById('prev_high_score').textContent = hs + ' 🪙';
   document.getElementById('prev_daily_login').textContent = dl + ' 🪙';
   document.getElementById('prev_session').textContent = sr + ' 🪙';
   document.getElementById('prev_streak').textContent = sb2 + ' 🪙';
@@ -1428,7 +1453,13 @@ async function saveRewardConfig() {
         ),
         isActive:
           toggleState.streak_enabled
-      }
+      },
+      // Existing updates array mein yeh object add karo:
+{
+  ruleKey: "HIGH_SCORE",
+  baseCoins: Number(document.getElementById("r_high_score").value),
+  isActive: toggleState.high_score_enabled
+}
 
     ];
 const response = await fetch(
