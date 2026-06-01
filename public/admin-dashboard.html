@@ -1179,7 +1179,7 @@ async function initDashboard() {
 async function loadDashboardStats() {
   try {
     // Total wallets/users
-    const { data: wallets } = await supabaseClient.from('Wallet').select('balance, lifetimeEarned');
+    const { data: wallets } = await supabaseClient.from('Wallet').select('balance, lifetimeEarned, streak_days');
     if (wallets) {
       document.getElementById('statTotalUsers').textContent = wallets.length;
       const totalCoins = wallets.reduce((s, w) => s + (w.lifetimeEarned || w.balance || 0), 0);
@@ -1188,11 +1188,17 @@ async function loadDashboardStats() {
       document.getElementById('statActiveStreaks').textContent = streakers;
     }
     // Today's transactions
-    const today = new Date(); today.setHours(0,0,0,0);
-    const { count } = await supabaseClient.from('Transaction')
-      .select('*', { count:'exact', head:true })
-      .gte('createdAt', today.toISOString());
-    document.getElementById('statTodayRewards').textContent = count ?? '—';
+    // Today's transactions - Transaction table pe RLS hai isliye try/catch
+    try {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const { count, error: txError } = await supabaseClient.from('Transaction')
+        .select('*', { count:'exact', head:true })
+        .gte('createdAt', today.toISOString());
+      if (txError) throw txError;
+      document.getElementById('statTodayRewards').textContent = count ?? 0;
+    } catch {
+      document.getElementById('statTodayRewards').textContent = 'N/A';
+    }
   } catch(e) {
     console.warn('Stats load error:', e);
     // Show fallback
@@ -1210,9 +1216,9 @@ async function renderWeekChart() {
     const dNext = new Date(d); dNext.setDate(dNext.getDate()+1);
     labels.push(days[d.getDay()]);
     try {
-      const { count } = await supabaseClient.from('Transaction')
+      const { count } = await supabaseClient.from('Wallet')
         .select('*', { count:'exact', head:true })
-        .gte('createdAt', d.toISOString()).lt('createdAt', dNext.toISOString());
+        .gte('updatedAt', d.toISOString()).lt('updatedAt', dNext.toISOString());
       barData.push(count || 0);
     } catch { barData.push(0); }
   }
@@ -1226,33 +1232,58 @@ async function renderWeekChart() {
 }
 
 async function loadRecentTransactions() {
-  try {
-    const { data } = await supabaseClient
-  .from('Transaction')
-  .select('*, wallet(id, userId)')
-  .order('createdAt', { ascending: false })
-  .limit(10);
-    const tbody = document.getElementById('recentTxTable');
-    if (!data || !data.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3);">No transactions yet</td></tr>';
-      return;
+//   try {
+//     const { data } = await supabaseClient
+//   .from('Transaction')
+//   .select('*, wallet(id, userId)')
+//   .order('createdAt', { ascending: false })
+//   .limit(10);
+//     const tbody = document.getElementById('recentTxTable');
+//     if (!data || !data.length) {
+//       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3);">No transactions yet</td></tr>';
+//       return;
+//     }
+//     tbody.innerHTML = data.map(tx => `
+//       <tr>
+//         <td style="font-family:var(--mono);font-size:12px">${(tx.wallet?.userId||'').slice(0,12)}...</td>
+//         <td><span class="badge ${tx.type==='earn'?'badge-green':'badge-red'}">${tx.type||'—'}</span></td>
+//         <td style="font-family:var(--mono);font-weight:600;color:${tx.type==='earn'?'var(--accent2)':'var(--accent3)'}">${tx.type==='earn'?'+':'-'}${tx.amount||0}</td>
+//         <td style="color:var(--text2)">${tx.game||tx.description||'—'}</td>
+//         <td style="font-family:var(--mono);font-size:11px;color:var(--text3)">${new Date(tx.createdAt).toLocaleTimeString('en-IN')}</td>
+//         <td style="font-family:var(--mono)">${tx.balanceAfter ?? '—'}</td>
+//       </tr>
+//     `).join('');
+//   } catch(e) {
+//     document.getElementById('recentTxTable').innerHTML =
+//       '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3);">Could not load transactions (check Transaction table)</td></tr>';
+//   }
+// }
+try {
+      const { data: wallets } = await supabaseClient
+        .from('Wallet')
+        .select('userId, balance, lifetimeEarned, updatedAt')
+        .order('updatedAt', { ascending: false })
+        .limit(10);
+      const tbody = document.getElementById('recentTxTable');
+      if (!wallets?.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3);">No activity yet</td></tr>';
+        return;
+      }
+      tbody.innerHTML = wallets.map(w => `
+        <tr>
+          <td style="font-family:var(--mono);font-size:12px">${(w.userId||'').slice(0,12)}...</td>
+          <td><span class="badge badge-green">earn</span></td>
+          <td style="font-family:var(--mono);font-weight:600;color:var(--accent2)">🪙 ${(w.balance||0).toLocaleString()}</td>
+          <td style="color:var(--text2)">wallet update</td>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--text3)">${new Date(w.updatedAt||Date.now()).toLocaleTimeString('en-IN')}</td>
+          <td style="font-family:var(--mono)">${(w.balance||0).toLocaleString()}</td>
+        </tr>
+      `).join('');
+    } catch {
+      document.getElementById('recentTxTable').innerHTML =
+        '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3);">Could not load activity</td></tr>';
     }
-    tbody.innerHTML = data.map(tx => `
-      <tr>
-        <td style="font-family:var(--mono);font-size:12px">${(tx.wallet?.userId||'').slice(0,12)}...</td>
-        <td><span class="badge ${tx.type==='earn'?'badge-green':'badge-red'}">${tx.type||'—'}</span></td>
-        <td style="font-family:var(--mono);font-weight:600;color:${tx.type==='earn'?'var(--accent2)':'var(--accent3)'}">${tx.type==='earn'?'+':'-'}${tx.amount||0}</td>
-        <td style="color:var(--text2)">${tx.game||tx.description||'—'}</td>
-        <td style="font-family:var(--mono);font-size:11px;color:var(--text3)">${new Date(tx.createdAt).toLocaleTimeString('en-IN')}</td>
-        <td style="font-family:var(--mono)">${tx.balanceAfter ?? '—'}</td>
-      </tr>
-    `).join('');
-  } catch(e) {
-    document.getElementById('recentTxTable').innerHTML =
-      '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3);">Could not load transactions (check Transaction table)</td></tr>';
   }
-}
-
 async function loadRewardConfig() {
 
  try {
