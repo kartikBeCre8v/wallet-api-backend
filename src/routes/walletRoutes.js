@@ -4,7 +4,7 @@ import { creditCoins } from '../services/walletService.js';
 import { prisma } from '../utils/prisma.js';
 import { io } from "../index.js";
 import { rewardUser } from '../services/rewardService.js';
-import { getConfig } from '../services/configService.js';
+
 import {
   startSession,
   endSession
@@ -29,6 +29,7 @@ router.get('/balance', authMiddleware, async (req, res) => {
       where: { userId: req.user.id }
     });
 
+    // If wallet not found
     if (!wallet) {
       return res.status(404).json({
         error: "Wallet not found"
@@ -90,20 +91,78 @@ router.post('/earn', authMiddleware, async (req, res) => {
 // EARN EVENT API
 // =========================
 
+// router.post('/earn/event', authMiddleware, async (req, res) => {
+
+//   try {
+
+//     const { coins, description } = req.body;
+
+//     const wallet = await prisma.wallet.findUnique({
+//       where: { userId: req.user.id }
+//     });
+
+//     if (!wallet) {
+//       return res.status(404).json({
+//         error: "Wallet not found"
+//       });
+//     }
+
+//     const newBalance = wallet.balance + Number(coins);
+
+//     await prisma.$transaction([
+
+//       prisma.wallet.update({
+//         where: { userId: req.user.id },
+//         data: {
+//           balance: newBalance
+//         }
+//       }),
+
+//       prisma.transaction.create({
+//         data: {
+//           walletId: wallet.id,
+//           type: "EARN",
+//           amount: Number(coins),
+//           source: "game.completed",
+//           sourcePlatform: "GAMES",
+//           description: description || "Game reward",
+//           balanceAfter: newBalance
+//         }
+//       })
+
+//     ]);
+
+//     res.json({
+//       success: true,
+//       newBalance
+//     });
+
+//   } catch (error) {
+
+//     console.error(error);
+
+//     res.status(500).json({
+//       error: "Internal server error"
+//     });
+
+//   }
+
+// });
 router.post('/earn/event', authMiddleware, async (req, res) => {
+
   try {
 
     const {
-      amount,
-      description,
-      game,
-      level,
-      score,
-      streak,
-      mode,
-      difficulty,
-      completedAt,
-    } = req.body;
+  amount,
+  description,
+  game,
+  level,
+  score,
+  streak,
+  mode,
+  difficulty,
+  completedAt,
+} = req.body;
 
     if (!amount) {
       return res.status(400).json({
@@ -111,42 +170,77 @@ router.post('/earn/event', authMiddleware, async (req, res) => {
       });
     }
 
-    const rewardAmount = Number(amount);
-
-    const result = await rewardUser({
-      userId: req.user.id,
-      amount: rewardAmount,
-      description: description || "Game reward",
-      source: "GAME_COMPLETED",
-      sourcePlatform: "GAMES",
-      referenceId: `${game}-${Date.now()}`,
-      metadata: {
-        game,
-        level,
-        score,
-        streak,
-        mode,
-        difficulty,
-        completedAt,
-      },
-      idempotencyKey: `${req.user.id}-${game}-${Date.now()}`
+    const wallet = await prisma.wallet.findUnique({
+      where: { userId: req.user.id }
     });
 
-    // ✅ FIX: use result (not rewardResult), use req.user.id (not userId)
-    io.to(req.user.id).emit("walletUpdated", {
-      balance: result.balance
-    });
+    if (!wallet) {
+      return res.status(404).json({
+        error: "Wallet not found"
+      });
+    }
 
-    return res.json(result);
+    const newBalance = Number(wallet.balance) + Number(amount);
+
+    await prisma.$transaction([
+
+      prisma.wallet.update({
+        where: { userId: req.user.id },
+        data: {
+          balance: newBalance   // ✅ MUST BE NUMBER
+        }
+      }),
+
+      prisma.transaction.create({
+        data: {
+          walletId: wallet.id,
+          type: "EARN",
+          amount: Number(amount),
+          source: "game.completed",
+          sourcePlatform: "GAMES",
+          description: description || "Game reward",
+          balanceAfter: newBalance,
+
+          metadata: {
+  game,
+  level,
+  score,
+},
+        }
+      })
+
+    ]);
+    console.log(
+  "EMITTING TO ROOM:",
+  req.user.id
+);
+    io.to(req.user.id).emit(
+  "walletUpdated",
+  {
+    balance: newBalance,
+  }
+);
+
+    return res.json({
+      success: true,
+      newBalance
+    });
 
   } catch (error) {
+
     console.error(error);
 
     return res.status(500).json({
       error: "Internal server error"
     });
+
   }
+
 });
+
+// =========================
+// SPEND EVENT API
+// =========================
 
 router.post(
   '/spend/event',
@@ -184,6 +278,7 @@ router.post(
 
       }
 
+      // INSUFFICIENT BALANCE
       if (
         Number(wallet.balance) <
         Number(amount)
@@ -238,6 +333,7 @@ router.post(
 
       ]);
 
+      // REALTIME UPDATE
       io.to(req.user.id).emit(
         "walletUpdated",
         {
@@ -265,6 +361,7 @@ router.get(
   async (req, res) => {
     try {
 
+      // FIND USER WALLET
       const wallet = await prisma.wallet.findUnique({
         where: {
           userId: req.user.id,
@@ -277,6 +374,7 @@ router.get(
         });
       }
 
+      // GET TRANSACTIONS USING walletId
       const transactions = await prisma.transaction.findMany({
         where: {
           walletId: wallet.id,
@@ -299,11 +397,6 @@ router.get(
     }
   }
 );
-
-// =========================
-// DAILY LOGIN
-// =========================
-
 router.post(
   '/daily-login',
   authMiddleware,
@@ -321,7 +414,9 @@ router.post(
         await prisma.dailyRewardTracker.findFirst({
           where: {
             userId,
+
             rewardType: 'DAILY_LOGIN',
+
             rewardDate: {
               gte: today
             }
@@ -329,32 +424,29 @@ router.post(
         });
 
       if (existing) {
-        // ✅ FIX: no rewardResult here, just return message
+
         return res.json({
           message: 'Already claimed today'
         });
+
       }
 
-      const rule =
-        await prisma.earningRule.findFirst({
-          where: {
-            ruleKey: "DAILY_LOGIN"
-          }
-        });
+      await rewardUser({
 
-      const rewardAmount =
-        Number(rule?.baseCoins || 10);
-
-      console.log("DAILY LOGIN REWARD:", rewardAmount);
-
-      const rewardResult = await rewardUser({
         userId,
-        amount: rewardAmount,
+
+        amount: 5,
+
         description: 'Daily login reward',
+
         source: 'DAILY_LOGIN',
+
         sourcePlatform: 'SYSTEM',
+
         referenceId: today.toDateString(),
+
         metadata: {},
+
         idempotencyKey:
           `daily-login-${userId}-${today.toDateString()}`
       });
@@ -370,14 +462,9 @@ router.post(
       const streak =
         await updateLoginStreak(userId);
 
-      io.to(userId).emit("walletUpdated", {
-        balance: rewardResult.balance
-      });
-
       return res.json({
         success: true,
-        streak,
-        balance: rewardResult.balance
+        streak
       });
 
     } catch (err) {
@@ -392,11 +479,6 @@ router.post(
 
   }
 );
-
-// =========================
-// HIGH SCORE
-// =========================
-
 router.post(
   '/high-score',
   authMiddleware,
@@ -416,8 +498,11 @@ router.post(
         await prisma.dailyRewardTracker.findFirst({
           where: {
             userId,
+
             rewardType: 'HIGH_SCORE',
+
             referenceId: game,
+
             rewardDate: {
               gte: today
             }
@@ -425,20 +510,31 @@ router.post(
         });
 
       if (existing) {
-        // ✅ FIX: no rewardResult here, just return message
+
         return res.json({
           message: 'Already rewarded today'
         });
+
       }
 
-      const rewardResult = await rewardUser({
+      await rewardUser({
+
         userId,
+
         amount: 25,
+
         description: 'High score reward',
+
         source: 'HIGH_SCORE',
+
         sourcePlatform: 'GAMES',
+
         referenceId: game,
-        metadata: { game },
+
+        metadata: {
+          game
+        },
+
         idempotencyKey:
           `high-score-${userId}-${game}-${today.toDateString()}`
       });
@@ -446,14 +542,13 @@ router.post(
       await prisma.dailyRewardTracker.create({
         data: {
           userId,
+
           rewardType: 'HIGH_SCORE',
+
           rewardDate: new Date(),
+
           referenceId: game
         }
-      });
-
-      io.to(userId).emit("walletUpdated", {
-        balance: rewardResult.balance
       });
 
       return res.json({
@@ -472,11 +567,6 @@ router.post(
 
   }
 );
-
-// =========================
-// PERFECT LEVEL
-// =========================
-
 router.post(
   '/perfect-level',
   authMiddleware,
@@ -498,36 +588,40 @@ router.post(
         await prisma.dailyRewardTracker.findFirst({
           where: {
             userId,
+
             rewardType: 'PERFECT_LEVEL',
+
             referenceId
           }
         });
 
       if (existing) {
-        // ✅ FIX: no rewardResult here, just return message
+
         return res.json({
           message: 'Already rewarded'
         });
+
       }
 
-      const rule =
-        await prisma.earningRule.findFirst({
-          where: {
-            ruleKey: "PERFECT_LEVEL"
-          }
-        });
+      await rewardUser({
 
-      const rewardAmount =
-        Number(rule?.baseCoins || 10);
-
-      const rewardResult = await rewardUser({
         userId,
-        amount: rewardAmount,
+
+        amount: 50,
+
         description: 'Perfect level reward',
+
         source: 'PERFECT_LEVEL',
+
         sourcePlatform: 'GAMES',
+
         referenceId,
-        metadata: { game, level },
+
+        metadata: {
+          game,
+          level
+        },
+
         idempotencyKey:
           `perfect-${userId}-${referenceId}`
       });
@@ -535,19 +629,17 @@ router.post(
       await prisma.dailyRewardTracker.create({
         data: {
           userId,
+
           rewardType: 'PERFECT_LEVEL',
+
           rewardDate: new Date(),
+
           referenceId
         }
       });
 
-      io.to(userId).emit("walletUpdated", {
-        balance: rewardResult.balance
-      });
-
       return res.json({
-        success: true,
-        balance: rewardResult.balance
+        success: true
       });
 
     } catch (err) {
@@ -562,11 +654,6 @@ router.post(
 
   }
 );
-
-// =========================
-// SESSION START
-// =========================
-
 router.post(
   '/session/start',
   authMiddleware,
@@ -581,10 +668,8 @@ router.post(
       const session =
         await startSession(
           userId,
-          game
         );
 
-      // ✅ FIX: session/start ke paas koi reward nahi hota, emit mat karo
       return res.json(session);
 
     } catch (err) {
@@ -599,11 +684,6 @@ router.post(
 
   }
 );
-
-// =========================
-// SESSION END
-// =========================
-
 router.post(
   '/session/end',
   authMiddleware,
@@ -639,33 +719,37 @@ router.post(
           await prisma.playSession.count({
             where: {
               userId,
+
               rewarded: true,
+
               createdAt: {
                 gte: today
               }
             }
           });
 
-        const rule =
-          await prisma.earningRule.findFirst({
-            where: {
-              ruleKey: "GAME_SESSION"
-            }
-          });
-
-        const rewardAmount =
-          Number(rule?.baseCoins || 10);
-
         if (rewardedToday < 5) {
 
-          const rewardResult = await rewardUser({
+          await rewardUser({
+
             userId,
-            amount: rewardAmount,
-            description: 'Play session reward',
-            source: 'PLAY_SESSION',
-            sourcePlatform: 'GAMES',
-            referenceId: sessionId,
+
+            amount: 10,
+
+            description:
+              'Play session reward',
+
+            source:
+              'PLAY_SESSION',
+
+            sourcePlatform:
+              'GAMES',
+
+            referenceId:
+              sessionId,
+
             metadata: {},
+
             idempotencyKey:
               `session-${sessionId}`
           });
@@ -674,14 +758,10 @@ router.post(
             where: {
               id: sessionId
             },
+
             data: {
               rewarded: true
             }
-          });
-
-          // ✅ FIX: emit only inside the if block where rewardResult exists
-          io.to(userId).emit("walletUpdated", {
-            balance: rewardResult.balance
           });
 
         }
@@ -704,5 +784,15 @@ router.post(
 
   }
 );
+router.get('/all', async (req, res) => {
+  try {
+    const wallets = await prisma.wallet.findMany({
+      orderBy: { balance: 'desc' }
+    });
 
+    res.json(wallets);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch wallets' });
+  }
+});
 export default router;
