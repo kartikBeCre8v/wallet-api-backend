@@ -430,12 +430,16 @@ router.post(
         });
 
       }
+const rule = await prisma.earningRule.findUnique({
+      where: { ruleKey: 'DAILY_LOGIN' }
+    });
 
+    const amount = rule?.isActive ? (rule.baseCoins ?? 5) : 5;
       await rewardUser({
 
         userId,
 
-        amount: 5,
+        amount,
 
         description: 'Daily login reward',
 
@@ -516,12 +520,16 @@ router.post(
         });
 
       }
+      const rule = await prisma.earningRule.findUnique({
+  where: { ruleKey: 'HIGH_SCORE' }
+});
+const amount = rule?.isActive ? (rule.baseCoins ?? 25) : 25;
 
       await rewardUser({
 
         userId,
 
-        amount: 25,
+        amount,
 
         description: 'High score reward',
 
@@ -602,12 +610,16 @@ router.post(
         });
 
       }
+      const rule = await prisma.earningRule.findUnique({
+  where: { ruleKey: 'PERFECT_LEVEL' }
+});
+const amount = rule?.isActive ? (rule.baseCoins ?? 50) : 50;
 
       await rewardUser({
 
         userId,
 
-        amount: 50,
+        amount,
 
         description: 'Perfect level reward',
 
