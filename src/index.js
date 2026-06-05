@@ -10,7 +10,7 @@ import configRoutes from './routes/config.routes.js';
 import earningRulesRoutes from './routes/earningRules.routes.js';
 import walletRoutes from './routes/walletRoutes.js';
 import sessionRoutes from './routes/session.routes.js';
-
+import redemptionRoutes from './routes/redemptionRoutes.js';
 // dotenv.config();
 
 const app = express();
@@ -27,7 +27,13 @@ export const io = new Server(server, {
 });
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    if (req.originalUrl === '/redeem/confirm') {
+      req.rawBody = buf;
+    }
+  }
+}));
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(
   '/session',
@@ -35,6 +41,7 @@ app.use(
 );
 
 app.use('/wallet', walletRoutes);
+app.use('/redeem', redemptionRoutes);
 app.use('/config', configRoutes);
 app.use('/earning-rules', earningRulesRoutes);
 app.get('/', (req, res) => {
