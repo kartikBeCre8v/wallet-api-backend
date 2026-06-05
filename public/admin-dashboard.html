@@ -509,6 +509,13 @@ td { padding:12px 16px; font-size:13.5px; vertical-align:middle; }
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
         Reward Settings
       </div>
+      <div class="nav-item" onclick="navigate('redemption', this)">
+  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  Redemption
+</div>
       <div class="nav-item" onclick="navigate('gameRewards', this)">
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"/></svg>
         Game Rewards
@@ -950,6 +957,49 @@ td { padding:12px 16px; font-size:13.5px; vertical-align:middle; }
         </div>
       </div>
 
+      <!-- ===== REDEMPTION SETTINGS ===== -->
+<div id="page-redemption" class="page">
+  <div class="page-header">
+    <h2>Redemption Settings</h2>
+    <p>Control how coins convert to rupees and how much discount a user can apply per cart</p>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">💸 Coin Value</div></div>
+      <div class="form-group">
+        <div class="form-label">1 Coin = ? Paise</div>
+        <div class="range-row">
+          <input type="range" min="1" max="100" step="1" id="r_coin_value"
+            oninput="updateRange(this,'v_coin_value')" />
+          <span class="range-val" id="v_coin_value">—</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-top:8px;">
+          Current: <strong id="v_coin_value_rupee">—</strong> per coin
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">🛒 Cart Redemption Cap</div></div>
+      <div class="form-group">
+        <div class="form-label">Max Discount % of Cart Total</div>
+        <div class="range-row">
+          <input type="range" min="1" max="100" step="1" id="r_redeem_cap"
+            oninput="updateRange(this,'v_redeem_cap')" />
+          <span class="range-val" id="v_redeem_cap">—</span>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-top:8px;">
+          e.g. Cart = ₹1000 → max discount = 
+          <strong id="v_cap_example">—</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-save" onclick="saveRedemptionConfig()">💾 Save Redemption Config</button>
+  </div>
+</div>
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /app -->
@@ -977,6 +1027,7 @@ td { padding:12px 16px; font-size:13.5px; vertical-align:middle; }
     </div>
   </div>
 </div>
+
 
 <!-- TOAST CONTAINER -->
 <div id="toastContainer"></div>
@@ -1164,6 +1215,7 @@ function startApp(user) {
 const PAGE_META = {
   dashboard: ['Dashboard', 'Wallet & Reward System Overview'],
   rewardSettings: ['Reward Settings', 'Dynamic reward configuration'],
+  redemption: ['Redemption Settings', 'Control coin value and cart cap'],
   gameRewards: ['Game Rewards', 'Per-game coin settings'],
   wallets: ['User Wallets', 'Manage balances across all platforms'],
   realtime: ['Live Activity', 'Real-time wallet event stream'],
@@ -1661,14 +1713,40 @@ async function saveGameRewards() {
   }
 }
 async function loadRedemptionConfig() {
-  const res = await fetch(`${WALLET_API}/system-config`);
-  const data = await res.json();
-  document.getElementById("r_coin_value").value = data.coinValuePaise || 10;
-  document.getElementById("r_redeem_cap").value = data.redemptionCapPercent || 20;
-  document.getElementById("v_coin_value").textContent = data.coinValuePaise || 10;
-  document.getElementById("v_redeem_cap").textContent = data.redemptionCapPercent || 20;
-}
+  try {
+    const res = await fetch(`${WALLET_API}/system-config`);
+    const data = await res.json();
 
+    const coinVal = data.coinValuePaise || 10;
+    const capVal = data.redemptionCapPercent || 20;
+
+    const coinEl = document.getElementById("r_coin_value");
+    const capEl = document.getElementById("r_redeem_cap");
+
+    // Value set karo
+    coinEl.value = coinVal;
+    capEl.value = capVal;
+
+    // --pct set karo taaki slider fill sahi dikhe
+    coinEl.style.setProperty('--pct', ((coinVal - coinEl.min) / (coinEl.max - coinEl.min)) * 100 + '%');
+    capEl.style.setProperty('--pct', ((capVal - capEl.min) / (capEl.max - capEl.min)) * 100 + '%');
+
+    // Display values
+    document.getElementById("v_coin_value").textContent = coinVal;
+    document.getElementById("v_redeem_cap").textContent = capVal;
+
+    // Rupee preview
+    const rupeeEl = document.getElementById("v_coin_value_rupee");
+    if (rupeeEl) rupeeEl.textContent = '₹' + (coinVal / 100).toFixed(2);
+
+    const capExEl = document.getElementById("v_cap_example");
+    if (capExEl) capExEl.textContent = '₹' + (1000 * capVal / 100).toFixed(0);
+
+  } catch (err) {
+    console.error("Failed to load redemption config:", err);
+    toast("Redemption config load failed", "error");
+  }
+}
 async function saveRedemptionConfig() {
   const coinValuePaise = Number(document.getElementById("r_coin_value").value);
   const redemptionCapPercent = Number(document.getElementById("r_redeem_cap").value);

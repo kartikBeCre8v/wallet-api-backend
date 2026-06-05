@@ -6,7 +6,6 @@ import http from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import configRoutes from './routes/config.routes.js';
 import earningRulesRoutes from './routes/earningRules.routes.js';
 import walletRoutes from './routes/walletRoutes.js';
 import sessionRoutes from './routes/session.routes.js';
@@ -43,7 +42,7 @@ app.use(
 
 app.use('/wallet', walletRoutes);
 app.use('/redeem', redemptionRoutes);
-app.use('/config', configRoutes);
+app.use('/system-config', systemConfigRoutes);
 app.use('/earning-rules', earningRulesRoutes);
 app.get('/', (req, res) => {
   res.send('Wallet API Running');
@@ -52,7 +51,6 @@ app.get('/', (req, res) => {
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/admin-dashboard.html'));
 });
-app.use('/system-config', systemConfigRoutes);
 
 io.on('connection', (socket) => {
 
