@@ -241,17 +241,26 @@ router.get("/redemption", async (req, res) => {
 
 router.put("/redemption", async (req, res) => {
   try {
-    const { redemptionCapPercent } = req.body;
+    const { redemptionCapPercent, coinValuePaise } = req.body;
 
     if (
       redemptionCapPercent === undefined ||
       Number(redemptionCapPercent) < 0 ||
-      Number(redemptionCapPercent) > 50
+      Number(redemptionCapPercent) > 100
     ) {
       return res.status(400).json({
-        error: "redemptionCapPercent must be between 0 and 50",
+        error: "redemptionCapPercent must be between 0 and 100",
       });
     }
+    if (
+  coinValuePaise === undefined ||
+  Number(coinValuePaise) < 1 ||
+  Number(coinValuePaise) > 100
+) {
+  return res.status(400).json({
+    error: "coinValuePaise must be between 1 and 100",
+  });
+}
 
     const config = await getOrCreateSystemConfig();
 
@@ -261,12 +270,14 @@ router.put("/redemption", async (req, res) => {
       },
       data: {
         redemptionCapPercent: Number(redemptionCapPercent),
+        coinValuePaise: Number(coinValuePaise),
       },
     });
 
     res.json({
       success: true,
       redemptionCapPercent: updatedConfig.redemptionCapPercent,
+      coinValuePaise: updatedConfig.coinValuePaise,
     });
 
   } catch (error) {

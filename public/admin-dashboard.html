@@ -837,7 +837,7 @@ td { padding:12px 16px; font-size:13.5px; vertical-align:middle; }
             <input
               type="range"
               min="0"
-              max="50"
+              max="100"
               step="1"
               id="r_redemption_cap"
               oninput="updateRange(this,'v_redemption_cap');updateRedemptionPreview();markUnsaved()"
@@ -853,12 +853,23 @@ td { padding:12px 16px; font-size:13.5px; vertical-align:middle; }
             class="form-input"
             id="input_redemption_cap"
             min="0"
-            max="50"
+            max="100"
             placeholder="20"
             oninput="syncRedemptionInput();markUnsaved()"
           />
         </div>
-
+<div class="form-group">
+  <div class="form-label">Coin Value in Paise</div>
+  <input
+    type="number"
+    class="form-input"
+    id="input_coin_value_paise"
+    min="1"
+    max="100"
+    placeholder="10"
+    oninput="updateRedemptionPreview();markUnsaved()"
+  />
+</div>
         <div class="btn-row">
           <button class="btn btn-save" id="saveRedemptionBtn" onclick="saveRedemptionConfig()">
             💾 Save Redemption Settings
@@ -883,6 +894,10 @@ td { padding:12px 16px; font-size:13.5px; vertical-align:middle; }
             <span>Redemption Limit</span>
             <span id="prev_redemption_percent">—</span>
           </div>
+          <div class="preview-row">
+  <span>Coin Value</span>
+  <span id="prev_coin_value_paise">—</span>
+</div>
           <div class="preview-row">
             <span>Max Discount</span>
             <span id="prev_redemption_discount">—</span>
@@ -1656,10 +1671,11 @@ async function loadRedemptionConfig() {
     const data = await response.json();
 
     const percent = Number(data.redemptionCapPercent ?? 20);
-
+const coinValuePaise = Number(data.coinValuePaise ?? 10);
     document.getElementById("r_redemption_cap").value = percent;
     document.getElementById("input_redemption_cap").value = percent;
     document.getElementById("v_redemption_cap").textContent = percent + "%";
+    document.getElementById("input_coin_value_paise").value = coinValuePaise;
 
     const slider = document.getElementById("r_redemption_cap");
     const pct = ((percent - slider.min) / (slider.max - slider.min)) * 100;
@@ -1677,7 +1693,7 @@ function syncRedemptionInput() {
   let value = Number(document.getElementById("input_redemption_cap").value || 0);
 
   if (value < 0) value = 0;
-  if (value > 50) value = 50;
+  if (value > 100) value = 100;
 
   document.getElementById("input_redemption_cap").value = value;
   document.getElementById("r_redemption_cap").value = value;
@@ -1692,12 +1708,16 @@ function syncRedemptionInput() {
 
 function updateRedemptionPreview() {
   const percent = Number(document.getElementById("r_redemption_cap")?.value || 20);
+  const coinValuePaise = Number(document.getElementById("input_coin_value_paise")?.value || 10);
+
   const cartValue = 999;
   const maxDiscount = (cartValue * percent) / 100;
-  const coinsNeeded = Math.floor(maxDiscount / 0.10);
+  const coinValueRupees = coinValuePaise / 100;
+  const coinsNeeded = Math.floor(maxDiscount / coinValueRupees);
 
   document.getElementById("input_redemption_cap").value = percent;
   document.getElementById("prev_redemption_percent").textContent = percent + "%";
+  document.getElementById("prev_coin_value_paise").textContent = coinValuePaise + " paise";
   document.getElementById("prev_redemption_discount").textContent = "₹" + maxDiscount.toFixed(2);
   document.getElementById("prev_redemption_coins").textContent = coinsNeeded.toLocaleString() + " coins";
 }
@@ -1711,14 +1731,17 @@ async function saveRedemptionConfig() {
     const redemptionCapPercent = Number(
       document.getElementById("r_redemption_cap").value
     );
-
+const coinValuePaise = Number(
+  document.getElementById("input_coin_value_paise").value
+);
     const response = await fetch(`${WALLET_API}/config/redemption`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        redemptionCapPercent
+        redemptionCapPercent,
+        coinValuePaise
       })
     });
 
