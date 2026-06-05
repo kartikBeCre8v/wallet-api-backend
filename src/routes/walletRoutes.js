@@ -4,6 +4,7 @@ import { creditCoins } from '../services/walletService.js';
 import { prisma } from '../utils/prisma.js';
 import { io } from "../index.js";
 import { rewardUser } from '../services/rewardService.js';
+import { checkDailyCap } from '../services/dailyCapService.js';
 
 import {
   startSession,
@@ -180,7 +181,29 @@ router.post('/earn/event', authMiddleware, async (req, res) => {
       });
     }
 
-    const newBalance = Number(wallet.balance) + Number(amount);
+    // const newBalance = Number(wallet.balance) + Number(amount);
+const capCheck = await checkDailyCap(
+  req.user.id,
+  Number(amount)
+);
+
+if (!capCheck.allowed) {
+  return res.json({
+    success: false,
+    capped: true,
+    coinsCredited: 0,
+    balance: Number(wallet.balance),
+    newBalance: Number(wallet.balance),
+    message: "Daily gaming cap reached",
+    dailyCap: capCheck.dailyCap,
+    totalEarnedToday: capCheck.totalEarnedToday,
+    remaining: 0,
+  });
+}
+
+const finalAmount = capCheck.creditAmount;
+
+const newBalance = Number(wallet.balance) + Number(finalAmount);
 
     await prisma.$transaction([
 
@@ -195,8 +218,8 @@ router.post('/earn/event', authMiddleware, async (req, res) => {
         data: {
           walletId: wallet.id,
           type: "EARN",
-          amount: Number(amount),
-          source: "game.completed",
+          amount: Number(finalAmount),
+          source: "GAME_COMPLETED",
           sourcePlatform: "GAMES",
           description: description || "Game reward",
           balanceAfter: newBalance,
@@ -221,10 +244,17 @@ router.post('/earn/event', authMiddleware, async (req, res) => {
   }
 );
 
-    return res.json({
-      success: true,
-      newBalance
-    });
+   return res.json({
+  success: true,
+  capped: Number(finalAmount) < Number(amount),
+  requestedCoins: Number(amount),
+  coinsCredited: Number(finalAmount),
+  balance: newBalance,
+  newBalance,
+  dailyCap: capCheck.dailyCap,
+  totalEarnedToday: capCheck.totalEarnedToday + Number(finalAmount),
+  remaining: Math.max(capCheck.remaining - Number(finalAmount), 0),
+});
 
   } catch (error) {
 
