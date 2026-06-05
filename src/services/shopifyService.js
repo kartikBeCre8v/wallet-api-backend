@@ -1,5 +1,5 @@
 const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN;
-const SHOPIFY_ADMIN_ACCESS_TOKEN = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+const SHOPIFY_ADMIN_API_TOKEN  = process.env.SHOPIFY_ADMIN_API_TOKEN;
 const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || "2026-01";
 
 export async function createShopifyDiscountCode({
@@ -7,7 +7,7 @@ export async function createShopifyDiscountCode({
   discountPaise,
   expiresAt,
 }) {
-  if (!SHOPIFY_STORE_DOMAIN || !SHOPIFY_ADMIN_ACCESS_TOKEN) {
+  if (!SHOPIFY_STORE_DOMAIN || !SHOPIFY_ADMIN_API_TOKEN ) {
     throw new Error("Shopify env variables missing");
   }
 
@@ -60,7 +60,7 @@ console.log(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": SHOPIFY_ADMIN_ACCESS_TOKEN,
+        "X-Shopify-Access-Token": SHOPIFY_ADMIN_API_TOKEN ,
       },
       body: JSON.stringify({
         query: mutation,
