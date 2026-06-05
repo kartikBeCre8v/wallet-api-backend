@@ -1155,6 +1155,7 @@ function startApp(user) {
   initGameCards();
   loadWallets();
   setupRealtime();
+  loadRedemptionConfig(); // ← yeh add karo
 }
 
 // ============================================================
@@ -1659,7 +1660,27 @@ async function saveGameRewards() {
     toast('Save failed: ' + e.message + ' — make sure game_rewards table exists', 'error');
   }
 }
+async function loadRedemptionConfig() {
+  const res = await fetch(`${WALLET_API}/system-config`);
+  const data = await res.json();
+  document.getElementById("r_coin_value").value = data.coinValuePaise || 10;
+  document.getElementById("r_redeem_cap").value = data.redemptionCapPercent || 20;
+  document.getElementById("v_coin_value").textContent = data.coinValuePaise || 10;
+  document.getElementById("v_redeem_cap").textContent = data.redemptionCapPercent || 20;
+}
 
+async function saveRedemptionConfig() {
+  const coinValuePaise = Number(document.getElementById("r_coin_value").value);
+  const redemptionCapPercent = Number(document.getElementById("r_redeem_cap").value);
+  
+  const res = await fetch(`${WALLET_API}/system-config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ coinValuePaise, redemptionCapPercent }),
+  });
+  if (res.ok) toast("Redemption config saved!", "success");
+  else toast("Save failed", "error");
+}
 // ============================================================
 // USER WALLETS
 // ============================================================

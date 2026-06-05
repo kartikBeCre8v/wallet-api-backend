@@ -12,6 +12,7 @@ import walletRoutes from './routes/walletRoutes.js';
 import sessionRoutes from './routes/session.routes.js';
 import redemptionRoutes from './routes/redemptionRoutes.js';
 // dotenv.config();
+import systemConfigRoutes from './routes/systemConfig.routes.js';
 
 const app = express();
 
@@ -51,6 +52,7 @@ app.get('/', (req, res) => {
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/admin-dashboard.html'));
 });
+app.use('/system-config', systemConfigRoutes);
 
 io.on('connection', (socket) => {
 
