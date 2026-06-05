@@ -2,12 +2,6 @@ const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN;
 const SHOPIFY_ADMIN_ACCESS_TOKEN = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
 const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || "2026-01";
 
-console.log("DOMAIN:", SHOPIFY_STORE_DOMAIN);
-console.log(
-  "TOKEN START:",
-  SHOPIFY_ADMIN_ACCESS_TOKEN?.substring(0, 15)
-);
-
 export async function createShopifyDiscountCode({
   code,
   discountPaise,
