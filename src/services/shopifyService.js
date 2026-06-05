@@ -51,9 +51,6 @@ export async function createShopifyDiscountCode({
       },
     },
   };
-console.log(
-  `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
-);
   const response = await fetch(
     `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
     {
