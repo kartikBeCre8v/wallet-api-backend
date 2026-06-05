@@ -6,12 +6,12 @@ import http from 'http';
 import { Server } from 'socket.io';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import configRoutes from './routes/config.routes.js';
 import earningRulesRoutes from './routes/earningRules.routes.js';
 import walletRoutes from './routes/walletRoutes.js';
 import sessionRoutes from './routes/session.routes.js';
 import redemptionRoutes from './routes/redemptionRoutes.js';
 // dotenv.config();
-import systemConfigRoutes from './routes/systemConfig.routes.js';
 
 const app = express();
 
@@ -42,7 +42,7 @@ app.use(
 
 app.use('/wallet', walletRoutes);
 app.use('/redeem', redemptionRoutes);
-app.use('/system-config', systemConfigRoutes);
+app.use('/config', configRoutes);
 app.use('/earning-rules', earningRulesRoutes);
 app.get('/', (req, res) => {
   res.send('Wallet API Running');
