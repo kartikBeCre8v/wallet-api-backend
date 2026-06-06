@@ -11,6 +11,7 @@ import earningRulesRoutes from './routes/earningRules.routes.js';
 import walletRoutes from './routes/walletRoutes.js';
 import sessionRoutes from './routes/session.routes.js';
 import redemptionRoutes from './routes/redemptionRoutes.js';
+import shopifyRoutes from './routes/shopifyRoutes.js';
 // dotenv.config();
 
 const app = express();
@@ -42,6 +43,7 @@ app.use(
 
 app.use('/wallet', walletRoutes);
 app.use('/redeem', redemptionRoutes);
+app.use('/shopify', shopifyRoutes);
 app.use('/config', configRoutes);
 app.use('/earning-rules', earningRulesRoutes);
 app.get('/', (req, res) => {
