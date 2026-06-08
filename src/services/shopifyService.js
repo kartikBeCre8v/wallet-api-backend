@@ -1,3 +1,5 @@
+shopifyService.js
+
 const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN;
 const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
 const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
@@ -122,16 +124,13 @@ export async function createShopifyDiscountCode({
   code,
   discountPaise,
   expiresAt,
-  minimumSubtotalPaise,
+  eligibleVariantIds = [],
 }) {
   if (!SHOPIFY_STORE_DOMAIN) {
     throw new Error("SHOPIFY_STORE_DOMAIN env variable missing");
   }
 
   const discountAmount = (Number(discountPaise) / 100).toFixed(2);
-  const minimumSubtotal =
-(Number(minimumSubtotalPaise) / 100)
-.toFixed(2);
 
   const mutation = `
     mutation discountCodeBasicCreate($basicCodeDiscount: DiscountCodeBasicInput!) {
@@ -154,12 +153,8 @@ export async function createShopifyDiscountCode({
       startsAt: new Date().toISOString(),
       endsAt: expiresAt.toISOString(),
       usageLimit: 1,
-      minimumRequirement: {
-  subtotal: {
-    greaterThanOrEqualToSubtotal: minimumSubtotal
-  }
-},
       appliesOncePerCustomer: true,
+      
       customerSelection: {
         all: true,
       },
@@ -171,21 +166,23 @@ export async function createShopifyDiscountCode({
           },
         },
         items: {
-          all: true,
+          productVariants: {
+    productVariantsToAdd: eligibleVariantIds.map(
+      id => `gid://shopify/ProductVariant/${id}`
+    )
+  }
         },
       },
     },
   };
 
   const data = await shopifyGraphQL(mutation, variables);
-  
 
   const result = data?.data?.discountCodeBasicCreate;
 
   if (!result) {
     throw new Error("Shopify discountCodeBasicCreate result missing");
   }
-  
 
   const errors = result.userErrors || [];
 
@@ -194,4 +191,31 @@ export async function createShopifyDiscountCode({
   }
 
   return result.codeDiscountNode.id;
+}
+export async function deactivateShopifyDiscountCode(shopifyDiscountId) {
+  const mutation = `
+    mutation discountCodeDeactivate($id: ID!) {
+      discountCodeDeactivate(id: $id) {
+        codeDiscountNode {
+          id
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const data = await shopifyGraphQL(mutation, {
+    id: shopifyDiscountId,
+  });
+
+  const errors = data?.data?.discountCodeDeactivate?.userErrors || [];
+
+  if (errors.length > 0) {
+    throw new Error(errors.map((e) => e.message).join(", "));
+  }
+
+  return true;
 }
