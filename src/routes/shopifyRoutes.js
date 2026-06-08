@@ -171,7 +171,15 @@ router.post("/redeem/generate-code", async (req, res) => {
         error: "Coin amount exceeds redemption limit",
       });
     }
-
+await prisma.redemption.updateMany({
+  where: {
+    userId: user.id,
+    status: "PENDING",
+  },
+  data: {
+    status: "CANCELLED",
+  },
+});
     const random = crypto.randomBytes(4).toString("hex").toUpperCase();
     const code = `CC-${coinAmount}-${random}`;
 
