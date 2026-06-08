@@ -163,13 +163,13 @@ export async function createShopifyDiscountCode({
             appliesOnEachItem: false,
           },
         },
-        items: {
-          productVariants: {
+       items: {
+  products: {
     productVariantsToAdd: eligibleVariantIds.map(
       id => `gid://shopify/ProductVariant/${id}`
     )
   }
-        },
+},
       },
     },
   };
