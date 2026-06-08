@@ -64,7 +64,7 @@ router.post("/link-user", async (req, res) => {
 // POST /shopify/redeem/quote
 router.post("/redeem/quote", async (req, res) => {
   try {
-    const { email, cartTotalPaise } = req.body;
+    const { email, cartTotalPaise, cartItems = [] } = req.body;
 
     if (!email || !cartTotalPaise) {
       return res.status(400).json({
@@ -91,19 +91,38 @@ router.post("/redeem/quote", async (req, res) => {
 
     const coinValuePaise = Number(config?.coinValuePaise || 10);
     const redemptionCapPercent = Number(config?.redemptionCapPercent || 20);
+    if (!Array.isArray(cartItems) || cartItems.length === 0) {
+  return res.status(400).json({
+    error: "Cart items are required",
+  });
+}
+
+const selectedItem = cartItems
+  .filter(item => item.variantId && Number(item.finalLinePrice) > 0)
+  .sort((a, b) => Number(b.finalLinePrice) - Number(a.finalLinePrice))[0];
+
+if (!selectedItem) {
+  return res.status(400).json({
+    error: "No eligible product found for redemption",
+  });
+}
 
     const maxDiscountPaise = Math.floor(
-      (Number(cartTotalPaise) * redemptionCapPercent) / 100
-    );
+  (Number(selectedItem.finalLinePrice) * redemptionCapPercent) / 100
+);
 
     const maxRedeemableCoins = Math.floor(
       maxDiscountPaise / coinValuePaise
     );
 
-    const recommendedRedeem = Math.min(
-      Number(user.wallet.balance || 0),
-      maxRedeemableCoins
-    );
+    const availableCoins =
+  Number(user.wallet.balance || 0) -
+  Number(user.wallet.lockedCoins || 0);
+
+const recommendedRedeem = Math.min(
+  availableCoins,
+  maxRedeemableCoins
+);
 
     res.json({
       userBalance: Number(user.wallet.balance || 0),
@@ -126,7 +145,7 @@ router.post("/redeem/quote", async (req, res) => {
 // POST /shopify/redeem/generate-code
 router.post("/redeem/generate-code", async (req, res) => {
   try {
-    const { email, coinAmount, cartTotalPaise, cartId } = req.body;
+    const { email, coinAmount, cartTotalPaise, cartId, cartItems = [] } = req.body;
 
     if (!email || !coinAmount || !cartTotalPaise) {
       return res.status(400).json({
@@ -149,7 +168,11 @@ router.post("/redeem/generate-code", async (req, res) => {
       });
     }
 
-    if (Number(coinAmount) > Number(user.wallet.balance || 0)) {
+const availableCoins =
+  Number(user.wallet.balance || 0) -
+  Number(user.wallet.lockedCoins || 0);
+
+if (Number(coinAmount) > availableCoins) {
       return res.status(400).json({
         error: "Not enough coins",
       });
@@ -171,7 +194,25 @@ router.post("/redeem/generate-code", async (req, res) => {
         error: "Coin amount exceeds redemption limit",
       });
     }
+    if (!Array.isArray(cartItems) || cartItems.length === 0) {
+  return res.status(400).json({
+    error: "Cart items are required",
+  });
+}
+
+const selectedItem = cartItems
+  .filter(item => item.variantId && item.finalLinePrice > 0)
+  .sort((a, b) => Number(b.finalLinePrice) - Number(a.finalLinePrice))[0];
+
+if (!selectedItem) {
+  return res.status(400).json({
+    error: "No eligible product found for redemption",
+  });
+}
+
+
 await prisma.redemption.updateMany({
+    
   where: {
     userId: user.id,
     status: "PENDING",
@@ -180,30 +221,56 @@ await prisma.redemption.updateMany({
     status: "CANCELLED",
   },
 });
+await prisma.wallet.update({
+  where: {
+    userId: user.id,
+  },
+  data: {
+    lockedCoins: {
+      increment: Number(coinAmount),
+    },
+  },
+});
     const random = crypto.randomBytes(4).toString("hex").toUpperCase();
     const code = `CC-${coinAmount}-${random}`;
 
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 20 * 60 * 1000);
     const discountPaise = Number(coinAmount) * coinValuePaise;
 
     const shopifyDiscountId = await createShopifyDiscountCode({
-      code,
-      discountPaise,
-      expiresAt,
-    });
+  code,
+  discountPaise,
+  expiresAt,
+  eligibleVariantIds: [selectedItem.variantId],
+});
 
     const redemption = await prisma.redemption.create({
-      data: {
-        userId: user.id,
-        shopifyDiscountCode: code,
-        shopifyDiscountId,
-        coinAmount: Number(coinAmount),
-        discountPaise,
-        status: "PENDING",
-        cartId: cartId || null,
-        expiresAt,
-      },
-    });
+  data: {
+    userId: user.id,
+    shopifyDiscountCode: code,
+    shopifyDiscountId,
+
+    coinAmount: Number(coinAmount),
+    discountPaise,
+
+    status: "PENDING",
+
+    cartId: cartId || null,
+
+    expiresAt,
+
+    eligibleProductIds: [
+      String(selectedItem.productId)
+    ],
+
+    eligibleVariantIds: [
+      String(selectedItem.variantId)
+    ],
+
+    originalCartValuePaise:
+      Number(cartTotalPaise),
+  },
+});
 
     res.json({
       success: true,

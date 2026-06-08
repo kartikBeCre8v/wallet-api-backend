@@ -12,6 +12,7 @@ import walletRoutes from './routes/walletRoutes.js';
 import sessionRoutes from './routes/session.routes.js';
 import redemptionRoutes from './routes/redemptionRoutes.js';
 import shopifyRoutes from './routes/shopifyRoutes.js';
+import { startExpiryCleanupJob } from "./jobs/expiryCleanup.js";
 // dotenv.config();
 
 const app = express();
@@ -78,4 +79,5 @@ const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  startExpiryCleanupJob(); 
 });

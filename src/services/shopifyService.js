@@ -122,12 +122,16 @@ export async function createShopifyDiscountCode({
   code,
   discountPaise,
   expiresAt,
+  minimumSubtotalPaise,
 }) {
   if (!SHOPIFY_STORE_DOMAIN) {
     throw new Error("SHOPIFY_STORE_DOMAIN env variable missing");
   }
 
   const discountAmount = (Number(discountPaise) / 100).toFixed(2);
+  const minimumSubtotal =
+(Number(minimumSubtotalPaise) / 100)
+.toFixed(2);
 
   const mutation = `
     mutation discountCodeBasicCreate($basicCodeDiscount: DiscountCodeBasicInput!) {
@@ -150,6 +154,11 @@ export async function createShopifyDiscountCode({
       startsAt: new Date().toISOString(),
       endsAt: expiresAt.toISOString(),
       usageLimit: 1,
+      minimumRequirement: {
+  subtotal: {
+    greaterThanOrEqualToSubtotal: minimumSubtotal
+  }
+},
       appliesOncePerCustomer: true,
       customerSelection: {
         all: true,
@@ -169,12 +178,14 @@ export async function createShopifyDiscountCode({
   };
 
   const data = await shopifyGraphQL(mutation, variables);
+  
 
   const result = data?.data?.discountCodeBasicCreate;
 
   if (!result) {
     throw new Error("Shopify discountCodeBasicCreate result missing");
   }
+  
 
   const errors = result.userErrors || [];
 

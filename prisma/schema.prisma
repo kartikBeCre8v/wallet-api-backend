@@ -194,8 +194,8 @@ model User {
   DailyRewardTracker  DailyRewardTracker[]
   LoginStreak         LoginStreak?
   PlaySession         PlaySession[]
-  wallet              Wallet?
   redemptions         Redemption[]
+  wallet              Wallet?
 }
 
 model Wallet {
@@ -208,6 +208,7 @@ model Wallet {
   createdAt      DateTime?     @default(now()) @db.Timestamp(6)
   updatedAt      DateTime?     @default(now()) @updatedAt @db.Timestamp(6)
   streak_days    Int           @default(0)
+  lockedCoins    Int           @default(0)
   transactions   Transaction[]
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
@@ -225,8 +226,8 @@ model Transaction {
   balanceAfter   Int
   idempotencyKey String?         @unique
   createdAt      DateTime?       @default(now()) @db.Timestamp(6)
+  redemption     Redemption?
   wallet         Wallet          @relation(fields: [walletId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  redemption    Redemption?
 }
 
 model DailyRewardTracker {
@@ -293,23 +294,41 @@ model EarningRule {
 }
 
 model Redemption {
-  id                  String           @id @default(uuid())
-  userId              String
-  transactionId        String?          @unique
-  shopifyDiscountCode  String           @unique
-  shopifyDiscountId    String?
-  coinAmount           Int
-  discountPaise        Int
-  status              RedemptionStatus @default(PENDING)
-  cartId              String?
-  expiresAt           DateTime         @db.Timestamp(6)
-  appliedAt           DateTime?        @db.Timestamp(6)
-  shopifyOrderId       String?
-  createdAt           DateTime?        @default(now()) @db.Timestamp(6)
-  updatedAt           DateTime?        @default(now()) @updatedAt @db.Timestamp(6)
+  id                     String           @id @default(dbgenerated("gen_random_uuid()"))
+  userId                 String
+  transactionId          String?          @unique
+  shopifyDiscountCode    String           @unique
+  shopifyDiscountId      String?
+  coinAmount             Int
+  discountPaise          Int
+  status                 RedemptionStatus @default(PENDING)
+  cartId                 String?
+  expiresAt              DateTime         @db.Timestamp(6)
+  appliedAt              DateTime?        @db.Timestamp(6)
+  shopifyOrderId         String?
+  createdAt              DateTime?        @default(now()) @db.Timestamp(6)
+  updatedAt              DateTime?        @default(now()) @updatedAt @db.Timestamp(6)
+  eligibleProductIds     String[]         @default([])
+  eligibleVariantIds     String[]         @default([])
+  originalCartValuePaise Int?
+  usedAt                 DateTime?        @db.Timestamp(6)
+  transaction            Transaction?     @relation(fields: [transactionId], references: [id], onUpdate: NoAction)
+  user                   User             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+model ProductRedemptionRule {
+  id                   String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  shopifyProductId     String
+  shopifyVariantId     String?
+  productName          String
+  coinsRedeemable      Boolean   @default(true)
+  maxRedemptionPercent Float     @default(20)
+  maxRupeeCap          Int       @default(0)
+  minCartValuePaise    Int?
+  priority             Int       @default(1)
+  isActive             Boolean   @default(true)
+  createdAt            DateTime? @default(now()) @db.Timestamp(6)
+  updatedAt            DateTime? @default(now()) @db.Timestamp(6)
 }
 
 enum UserStatus {
@@ -340,6 +359,9 @@ enum RedemptionStatus {
   APPLIED
   EXPIRED
   CANCELLED
+  USED
+  FAILED
+  REFUNDED
 }
 
 enum EarningCategory {
