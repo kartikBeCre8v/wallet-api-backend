@@ -183,17 +183,19 @@ if (Number(coinAmount) > availableCoins) {
     const coinValuePaise = Number(config?.coinValuePaise || 10);
     const redemptionCapPercent = Number(config?.redemptionCapPercent || 20);
 
-    const maxDiscountPaise = Math.floor(
-      (Number(cartTotalPaise) * redemptionCapPercent) / 100
-    );
+    // const maxDiscountPaise = Math.floor(
+    //   (Number(cartTotalPaise) * redemptionCapPercent) / 100
+    // );
 
-    const maxCoinsByCart = Math.floor(maxDiscountPaise / coinValuePaise);
+    // const maxCoinsByCart = Math.floor(maxDiscountPaise / coinValuePaise);
 
-    if (Number(coinAmount) > maxCoinsByCart) {
-      return res.status(400).json({
-        error: "Coin amount exceeds redemption limit",
-      });
-    }
+    // if (Number(coinAmount) > maxCoinsByCart) {
+    //   return res.status(400).json({
+    //     error: "Coin amount exceeds redemption limit",
+    //   });
+    // }
+
+
     if (!Array.isArray(cartItems) || cartItems.length === 0) {
   return res.status(400).json({
     error: "Cart items are required",
@@ -210,27 +212,80 @@ if (!selectedItem) {
   });
 }
 
+const maxDiscountPaise = Math.floor(
+  (Number(selectedItem.finalLinePrice) * redemptionCapPercent) / 100
+);
 
-await prisma.redemption.updateMany({
+const maxCoinsBySelectedProduct = Math.floor(
+  maxDiscountPaise / coinValuePaise
+);
+
+if (Number(coinAmount) > maxCoinsBySelectedProduct) {
+  return res.status(400).json({
+    error: "Coin amount exceeds selected product redemption limit",
+  });
+}
+// await prisma.redemption.updateMany({
     
+//   where: {
+//     userId: user.id,
+//     status: "PENDING",
+//   },
+//   data: {
+//     status: "CANCELLED",
+//   },
+// });
+const oldPendingRedemptions = await prisma.redemption.findMany({
   where: {
     userId: user.id,
     status: "PENDING",
   },
-  data: {
-    status: "CANCELLED",
-  },
 });
-await prisma.wallet.update({
-  where: {
-    userId: user.id,
-  },
-  data: {
-    lockedCoins: {
-      increment: Number(coinAmount),
+
+const coinsToRelease = oldPendingRedemptions.reduce(
+  (sum, redemption) => sum + Number(redemption.coinAmount || 0),
+  0
+);
+
+await prisma.$transaction([
+  prisma.redemption.updateMany({
+    where: {
+      userId: user.id,
+      status: "PENDING",
     },
-  },
-});
+    data: {
+      status: "CANCELLED",
+    },
+  }),
+
+  ...(coinsToRelease > 0
+    ? [
+        prisma.wallet.update({
+          where: {
+            userId: user.id,
+          },
+          data: {
+            lockedCoins: {
+  decrement: Math.min(
+    coinsToRelease,
+    Number(user.wallet.lockedCoins || 0)
+  ),
+},
+          },
+        }),
+      ]
+    : []),
+]);
+// await prisma.wallet.update({
+//   where: {
+//     userId: user.id,
+//   },
+//   data: {
+//     lockedCoins: {
+//       increment: Number(coinAmount),
+//     },
+//   },
+// });
     const random = crypto.randomBytes(4).toString("hex").toUpperCase();
     const code = `CC-${coinAmount}-${random}`;
 
@@ -244,33 +299,64 @@ await prisma.wallet.update({
   eligibleVariantIds: [selectedItem.variantId],
 });
 
-    const redemption = await prisma.redemption.create({
-  data: {
-    userId: user.id,
-    shopifyDiscountCode: code,
-    shopifyDiscountId,
+//     const redemption = await prisma.redemption.create({
+//   data: {
+//     userId: user.id,
+//     shopifyDiscountCode: code,
+//     shopifyDiscountId,
 
-    coinAmount: Number(coinAmount),
-    discountPaise,
+//     coinAmount: Number(coinAmount),
+//     discountPaise,
 
-    status: "PENDING",
+//     status: "PENDING",
 
-    cartId: cartId || null,
+//     cartId: cartId || null,
 
-    expiresAt,
+//     expiresAt,
 
-    eligibleProductIds: [
-      String(selectedItem.productId)
-    ],
+//     eligibleProductIds: [
+//       String(selectedItem.productId)
+//     ],
 
-    eligibleVariantIds: [
-      String(selectedItem.variantId)
-    ],
+//     eligibleVariantIds: [
+//       String(selectedItem.variantId)
+//     ],
 
-    originalCartValuePaise:
-      Number(cartTotalPaise),
-  },
-});
+//     originalCartValuePaise:
+//       Number(cartTotalPaise),
+//   },
+// });
+const [redemption] = await prisma.$transaction([
+  prisma.redemption.create({
+    data: {
+      userId: user.id,
+      shopifyDiscountCode: code,
+      shopifyDiscountId,
+
+      coinAmount: Number(coinAmount),
+      discountPaise,
+
+      status: "PENDING",
+      cartId: cartId || null,
+      expiresAt,
+
+      eligibleProductIds: [String(selectedItem.productId)],
+      eligibleVariantIds: [String(selectedItem.variantId)],
+      originalCartValuePaise: Number(cartTotalPaise),
+    },
+  }),
+
+  prisma.wallet.update({
+    where: {
+      userId: user.id,
+    },
+    data: {
+      lockedCoins: {
+        increment: Number(coinAmount),
+      },
+    },
+  }),
+]);
 
     res.json({
       success: true,
