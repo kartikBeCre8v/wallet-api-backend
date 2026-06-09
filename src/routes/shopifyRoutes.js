@@ -504,4 +504,116 @@ router.post("/redeem/cancel", async (req, res) => {
     });
   }
 });
+
+// POST /shopify/webhook/order-paid
+router.post("/webhook/order-paid", async (req, res) => {
+  try {
+    // Step 1: HMAC verify karo
+    const hmacHeader = req.headers["x-shopify-hmac-sha256"];
+    const secret = process.env.SHOPIFY_WEBHOOK_SECRET;
+
+    if (secret && hmacHeader) {
+      const rawBody = req.rawBody;
+      if (!rawBody) {
+        console.warn("[Webhook] rawBody missing — check index.js verify config");
+        return res.status(401).json({ error: "Raw body missing" });
+      }
+      const digest = crypto
+        .createHmac("sha256", secret)
+        .update(rawBody)
+        .digest("base64");
+
+      if (digest !== hmacHeader) {
+        console.warn("[Webhook] HMAC verification failed");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+    }
+
+    // Step 2: Order data parse karo
+    const order = req.body;
+
+    if (!order || !order.id) {
+      return res.status(400).json({ error: "Invalid order payload" });
+    }
+
+    console.log(`[Webhook] Order received: ${order.id}`);
+
+    // Step 3: CC- se shuru hone wala discount code dhundho
+    const discountCodes = order.discount_codes || [];
+    const cre8vCode = discountCodes.find((d) =>
+      d.code?.startsWith("CC-")
+    );
+
+    if (!cre8vCode) {
+      console.log("[Webhook] No Cre8v code in order — skipping");
+      return res.status(200).json({ message: "No Cre8v code in this order" });
+    }
+
+    console.log(`[Webhook] Cre8v code found: ${cre8vCode.code}`);
+
+    // Step 4: Redemption record dhundho
+    const redemption = await prisma.redemption.findUnique({
+      where: { shopifyDiscountCode: cre8vCode.code },
+    });
+
+    if (!redemption) {
+      console.warn(`[Webhook] Redemption not found for code: ${cre8vCode.code}`);
+      return res.status(200).json({ message: "Redemption not found" });
+    }
+
+    // Step 5: Already processed check
+    if (redemption.status !== "PENDING") {
+      console.log(`[Webhook] Already processed: ${redemption.status}`);
+      return res.status(200).json({ message: `Already ${redemption.status}` });
+    }
+
+    // Step 6: Wallet fetch karo safe decrement ke liye
+    const wallet = await prisma.wallet.findUnique({
+      where: { userId: redemption.userId },
+    });
+
+    if (!wallet) {
+      console.error(`[Webhook] Wallet not found for user: ${redemption.userId}`);
+      return res.status(200).json({ message: "Wallet not found" });
+    }
+
+    const safeDeductBalance = Math.min(
+      redemption.coinAmount,
+      Number(wallet.balance || 0)
+    );
+    const safeDeductLocked = Math.min(
+      redemption.coinAmount,
+      Number(wallet.lockedCoins || 0)
+    );
+
+    // Step 7: Ek transaction mein sab update karo
+    await prisma.$transaction([
+      prisma.redemption.update({
+        where: { id: redemption.id },
+        data: {
+          status: "USED",
+          shopifyOrderId: String(order.id),
+          usedAt: new Date(),
+        },
+      }),
+      prisma.wallet.update({
+        where: { userId: redemption.userId },
+        data: {
+          balance: { decrement: safeDeductBalance },
+          lockedCoins: { decrement: safeDeductLocked },
+        },
+      }),
+    ]);
+
+    console.log(
+      `[Webhook] Order ${order.id} processed — ${redemption.coinAmount} coins deducted for user ${redemption.userId}`
+    );
+
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error("[Webhook] order-paid error:", err.message);
+    // Shopify expects 200 even on error — warna retry karta rehta hai
+    return res.status(200).json({ error: "Webhook processing failed" });
+  }
+});
 export default router;

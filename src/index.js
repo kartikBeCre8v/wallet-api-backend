@@ -29,9 +29,17 @@ export const io = new Server(server, {
 });
 
 app.use(cors());
+// app.use(express.json({
+//   verify: (req, res, buf) => {
+//     if (req.originalUrl === '/redeem/confirm') {
+//       req.rawBody = buf;
+//     }
+//   }
+// }));
+
 app.use(express.json({
   verify: (req, res, buf) => {
-    if (req.originalUrl === '/redeem/confirm') {
+    if (req.originalUrl === '/redeem/confirm' || req.originalUrl.startsWith('/shopify/webhook')) {
       req.rawBody = buf;
     }
   }
