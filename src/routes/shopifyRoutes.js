@@ -290,8 +290,6 @@ if (Number(coinAmount) > maxCoinsBySelectedProduct) {
 //       ]
 //     : []),
 // ]);
-
-    const random = crypto.randomBytes(4).toString("hex").toUpperCase();
     // user ka naam se short string banao
 const userShort = user.email.split("@")[0].slice(0, 6).toUpperCase();
 const random = crypto.randomBytes(3).toString("hex").toUpperCase();
