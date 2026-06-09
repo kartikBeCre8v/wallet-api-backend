@@ -38,7 +38,10 @@ router.get('/balance', authMiddleware, async (req, res) => {
     }
 
     res.json({
-      balance: wallet.balance
+      balance: wallet.balance,
+      lockedCoins: wallet.lockedCoins || 0,
+      availableBalance: Number(wallet.balance || 0) - Number(wallet.lockedCoins || 0),
+
     });
 
   } catch (error) {
