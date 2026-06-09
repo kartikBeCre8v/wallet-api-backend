@@ -473,39 +473,23 @@ router.post("/redeem/cancel", async (req, res) => {
     }
 
     // DB: redemption CANCELLED + lockedCoins release — ek transaction mein
-const newBalance = Number(wallet.balance || 0) - safeDeductBalance;
-
-await prisma.$transaction([
-  prisma.redemption.update({
-    where: { id: redemption.id },
-    data: {
-      status: "USED",
-      shopifyOrderId: String(order.id),
-      usedAt: new Date(),
-    },
-  }),
-  prisma.wallet.update({
-    where: { userId: redemption.userId },
-    data: {
-      balance: { decrement: safeDeductBalance },
-      lockedCoins: { decrement: safeDeductLocked },
-      lifetimeSpent: { increment: safeDeductBalance },
-    },
-  }),
-  prisma.transaction.create({
-    data: {
-      walletId: wallet.id,
-      type: "SPEND",
-      amount: safeDeductBalance,
-      source: `Shopify Order ${order.id}`,
-      sourcePlatform: "SHOPIFY",
-      referenceId: String(order.id),
-      description: `Cre8v Coins redeemed — discount code ${redemption.shopifyDiscountCode}`,
-      balanceAfter: newBalance,
-      idempotencyKey: `webhook-order-${order.id}`,
-    },
-  }),
-]);
+    await prisma.$transaction([
+      prisma.redemption.update({
+        where: { id: redemption.id },
+        data: { status: "CANCELLED" },
+      }),
+      prisma.wallet.update({
+        where: { userId: user.id },
+        data: {
+          lockedCoins: {
+            decrement: Math.min(
+              Number(redemption.coinAmount),
+              Number(user.wallet.lockedCoins || 0)
+            ),
+          },
+        },
+      }),
+    ]);
 
     return res.json({
       success: true,
@@ -603,23 +587,39 @@ router.post("/webhook/order-paid", async (req, res) => {
     );
 
     // Step 7: Ek transaction mein sab update karo
-    await prisma.$transaction([
-      prisma.redemption.update({
-        where: { id: redemption.id },
-        data: {
-          status: "USED",
-          shopifyOrderId: String(order.id),
-          usedAt: new Date(),
-        },
-      }),
-      prisma.wallet.update({
-        where: { userId: redemption.userId },
-        data: {
-          balance: { decrement: safeDeductBalance },
-          lockedCoins: { decrement: safeDeductLocked },
-        },
-      }),
-    ]);
+const newBalance = Number(wallet.balance || 0) - safeDeductBalance;
+
+await prisma.$transaction([
+  prisma.redemption.update({
+    where: { id: redemption.id },
+    data: {
+      status: "USED",
+      shopifyOrderId: String(order.id),
+      usedAt: new Date(),
+    },
+  }),
+  prisma.wallet.update({
+    where: { userId: redemption.userId },
+    data: {
+      balance: { decrement: safeDeductBalance },
+      lockedCoins: { decrement: safeDeductLocked },
+      lifetimeSpent: { increment: safeDeductBalance },
+    },
+  }),
+  prisma.transaction.create({
+    data: {
+      walletId: wallet.id,
+      type: "SPEND",
+      amount: safeDeductBalance,
+      source: `Shopify Order ${order.id}`,
+      sourcePlatform: "SHOPIFY",
+      referenceId: String(order.id),
+      description: `Cre8v Coins redeemed — discount code ${redemption.shopifyDiscountCode}`,
+      balanceAfter: newBalance,
+      idempotencyKey: `webhook-order-${order.id}`,
+    },
+  }),
+]);
 
     console.log(
       `[Webhook] Order ${order.id} processed — ${redemption.coinAmount} coins deducted for user ${redemption.userId}`
