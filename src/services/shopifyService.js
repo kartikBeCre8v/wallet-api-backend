@@ -152,7 +152,11 @@ export async function createShopifyDiscountCode({
       endsAt: expiresAt.toISOString(),
       usageLimit: 1,
       appliesOncePerCustomer: true,
-      
+      combinesWith: {
+  orderDiscounts: false,
+  productDiscounts: false,
+  shippingDiscounts: false,
+},
       customerSelection: {
         all: true,
       },

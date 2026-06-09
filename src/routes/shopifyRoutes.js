@@ -2,6 +2,8 @@ import express from "express";
 import { prisma } from "../utils/prisma.js";
 import { createShopifyDiscountCode } from "../services/shopifyService.js";
 import crypto from "crypto";
+import { deactivateShopifyDiscountCode } from "../services/shopifyService.js";
+
 
 const router = express.Router();
 
@@ -178,6 +180,28 @@ if (Number(coinAmount) > availableCoins) {
       });
     }
 
+    // generate-code route mein, availableCoins check ke baad yeh add karo:
+
+const existingPending = await prisma.redemption.findFirst({
+  where: {
+    userId: user.id,
+    status: "PENDING",
+  },
+});
+
+if (existingPending) {
+  const minutesLeft = Math.ceil(
+    (new Date(existingPending.expiresAt) - new Date()) / 60000
+  );
+  return res.status(400).json({
+    error: "ACTIVE_REDEMPTION_EXISTS",
+    message: `You already have an active code: ${existingPending.shopifyDiscountCode}. It expires in ${minutesLeft} minute(s). Cancel it first to generate a new one.`,
+    redemptionId: existingPending.id,
+    shopifyDiscountCode: existingPending.shopifyDiscountCode,
+    expiresAt: existingPending.expiresAt,
+  });
+}
+
     const config = await prisma.systemConfig.findFirst();
 
     const coinValuePaise = Number(config?.coinValuePaise || 10);
@@ -225,139 +249,163 @@ if (Number(coinAmount) > maxCoinsBySelectedProduct) {
     error: "Coin amount exceeds selected product redemption limit",
   });
 }
-// await prisma.redemption.updateMany({
-    
+// const oldPendingRedemptions = await prisma.redemption.findMany({
 //   where: {
 //     userId: user.id,
 //     status: "PENDING",
 //   },
-//   data: {
-//     status: "CANCELLED",
-//   },
 // });
-const oldPendingRedemptions = await prisma.redemption.findMany({
-  where: {
-    userId: user.id,
-    status: "PENDING",
-  },
-});
 
-const coinsToRelease = oldPendingRedemptions.reduce(
-  (sum, redemption) => sum + Number(redemption.coinAmount || 0),
-  0
-);
+// const coinsToRelease = oldPendingRedemptions.reduce(
+//   (sum, redemption) => sum + Number(redemption.coinAmount || 0),
+//   0
+// );
 
-await prisma.$transaction([
-  prisma.redemption.updateMany({
-    where: {
-      userId: user.id,
-      status: "PENDING",
-    },
-    data: {
-      status: "CANCELLED",
-    },
-  }),
-
-  ...(coinsToRelease > 0
-    ? [
-        prisma.wallet.update({
-          where: {
-            userId: user.id,
-          },
-          data: {
-            lockedCoins: {
-  decrement: Math.min(
-    coinsToRelease,
-    Number(user.wallet.lockedCoins || 0)
-  ),
-},
-          },
-        }),
-      ]
-    : []),
-]);
-// await prisma.wallet.update({
-//   where: {
-//     userId: user.id,
-//   },
-//   data: {
-//     lockedCoins: {
-//       increment: Number(coinAmount),
+// await prisma.$transaction([
+//   prisma.redemption.updateMany({
+//     where: {
+//       userId: user.id,
+//       status: "PENDING",
 //     },
-//   },
-// });
+//     data: {
+//       status: "CANCELLED",
+//     },
+//   }),
+
+//   ...(coinsToRelease > 0
+//     ? [
+//         prisma.wallet.update({
+//           where: {
+//             userId: user.id,
+//           },
+//           data: {
+//             lockedCoins: {
+//   decrement: Math.min(
+//     coinsToRelease,
+//     Number(user.wallet.lockedCoins || 0)
+//   ),
+// },
+//           },
+//         }),
+//       ]
+//     : []),
+// ]);
+
     const random = crypto.randomBytes(4).toString("hex").toUpperCase();
-    const code = `CC-${coinAmount}-${random}`;
+    // user ka naam se short string banao
+const userShort = user.email.split("@")[0].slice(0, 6).toUpperCase();
+const random = crypto.randomBytes(3).toString("hex").toUpperCase();
+const code = `CC-${userShort}-${random}`;
 
     const expiresAt = new Date(Date.now() + 20 * 60 * 1000);
     const discountPaise = Number(coinAmount) * coinValuePaise;
 
-    const shopifyDiscountId = await createShopifyDiscountCode({
-  code,
-  discountPaise,
-  expiresAt,
-  eligibleVariantIds: [selectedItem.variantId],
-});
-
-//     const redemption = await prisma.redemption.create({
-//   data: {
-//     userId: user.id,
-//     shopifyDiscountCode: code,
-//     shopifyDiscountId,
-
-//     coinAmount: Number(coinAmount),
-//     discountPaise,
-
-//     status: "PENDING",
-
-//     cartId: cartId || null,
-
-//     expiresAt,
-
-//     eligibleProductIds: [
-//       String(selectedItem.productId)
-//     ],
-
-//     eligibleVariantIds: [
-//       String(selectedItem.variantId)
-//     ],
-
-//     originalCartValuePaise:
-//       Number(cartTotalPaise),
-//   },
+//     const shopifyDiscountId = await createShopifyDiscountCode({
+//   code,
+//   discountPaise,
+//   expiresAt,
+//   eligibleVariantIds: [selectedItem.variantId],
 // });
+
+// //     const redemption = await prisma.redemption.create({
+// //   data: {
+// //     userId: user.id,
+// //     shopifyDiscountCode: code,
+// //     shopifyDiscountId,
+
+// //     coinAmount: Number(coinAmount),
+// //     discountPaise,
+
+// //     status: "PENDING",
+
+// //     cartId: cartId || null,
+
+// //     expiresAt,
+
+// //     eligibleProductIds: [
+// //       String(selectedItem.productId)
+// //     ],
+
+// //     eligibleVariantIds: [
+// //       String(selectedItem.variantId)
+// //     ],
+
+// //     originalCartValuePaise:
+// //       Number(cartTotalPaise),
+// //   },
+// // });
+// const [redemption] = await prisma.$transaction([
+//   prisma.redemption.create({
+//     data: {
+//       userId: user.id,
+//       shopifyDiscountCode: code,
+//       shopifyDiscountId,
+
+//       coinAmount: Number(coinAmount),
+//       discountPaise,
+
+//       status: "PENDING",
+//       cartId: cartId || null,
+//       expiresAt,
+
+//       eligibleProductIds: [String(selectedItem.productId)],
+//       eligibleVariantIds: [String(selectedItem.variantId)],
+//       originalCartValuePaise: Number(cartTotalPaise),
+//     },
+//   }),
+
+//   prisma.wallet.update({
+//     where: {
+//       userId: user.id,
+//     },
+//     data: {
+//       lockedCoins: {
+//         increment: Number(coinAmount),
+//       },
+//     },
+//   }),
+// ]);
+// Pehle Shopify call karo — coins abhi mat lock karo
+let shopifyDiscountId;
+try {
+  shopifyDiscountId = await createShopifyDiscountCode({
+    code,
+    discountPaise,
+    expiresAt,
+    eligibleVariantIds: [selectedItem.variantId],
+  });
+} catch (shopifyErr) {
+  console.error("Shopify discount creation failed:", shopifyErr.message);
+  return res.status(500).json({
+    error: "Failed to create Shopify discount code",
+    details: shopifyErr.message,
+  });
+}
+
+// Shopify succeed hua — ab ek saath redemption banao + coins lock karo
 const [redemption] = await prisma.$transaction([
   prisma.redemption.create({
     data: {
       userId: user.id,
       shopifyDiscountCode: code,
       shopifyDiscountId,
-
       coinAmount: Number(coinAmount),
       discountPaise,
-
       status: "PENDING",
       cartId: cartId || null,
       expiresAt,
-
       eligibleProductIds: [String(selectedItem.productId)],
       eligibleVariantIds: [String(selectedItem.variantId)],
       originalCartValuePaise: Number(cartTotalPaise),
     },
   }),
-
   prisma.wallet.update({
-    where: {
-      userId: user.id,
-    },
+    where: { userId: user.id },
     data: {
-      lockedCoins: {
-        increment: Number(coinAmount),
-      },
+      lockedCoins: { increment: Number(coinAmount) },
     },
   }),
 ]);
-
     res.json({
       success: true,
       redemptionId: redemption.id,
@@ -376,5 +424,86 @@ const [redemption] = await prisma.$transaction([
     });
   }
 });
+// POST /shopify/redeem/cancel
+router.post("/redeem/cancel", async (req, res) => {
+  try {
+    const { email, redemptionId } = req.body;
 
+    if (!email || !redemptionId) {
+      return res.status(400).json({
+        error: "email and redemptionId are required",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: String(email).toLowerCase() },
+      include: { wallet: true },
+    });
+
+    if (!user || !user.wallet) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const redemption = await prisma.redemption.findUnique({
+      where: { id: redemptionId },
+    });
+
+    if (!redemption) {
+      return res.status(404).json({ error: "Redemption not found" });
+    }
+
+    if (redemption.userId !== user.id) {
+      return res.status(403).json({ error: "Not authorized" });
+    }
+
+    if (redemption.status !== "PENDING") {
+      return res.status(400).json({
+        error: `Cannot cancel — redemption is already ${redemption.status}`,
+      });
+    }
+
+    // Shopify code deactivate karo — fail ho toh bhi coins release karo
+    if (redemption.shopifyDiscountId) {
+      try {
+        await deactivateShopifyDiscountCode(redemption.shopifyDiscountId);
+      } catch (shopifyErr) {
+        console.warn(
+          "Shopify deactivation failed during cancel:",
+          shopifyErr.message
+        );
+      }
+    }
+
+    // DB: redemption CANCELLED + lockedCoins release — ek transaction mein
+    await prisma.$transaction([
+      prisma.redemption.update({
+        where: { id: redemption.id },
+        data: { status: "CANCELLED" },
+      }),
+      prisma.wallet.update({
+        where: { userId: user.id },
+        data: {
+          lockedCoins: {
+            decrement: Math.min(
+              Number(redemption.coinAmount),
+              Number(user.wallet.lockedCoins || 0)
+            ),
+          },
+        },
+      }),
+    ]);
+
+    return res.json({
+      success: true,
+      message: "Redemption cancelled and coins released",
+      coinsReleased: redemption.coinAmount,
+    });
+  } catch (error) {
+    console.error("Cancel redemption error:", error);
+    return res.status(500).json({
+      error: "Failed to cancel redemption",
+      details: error.message,
+    });
+  }
+});
 export default router;
