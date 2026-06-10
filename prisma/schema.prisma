@@ -177,25 +177,23 @@ model users {
 }
 
 model User {
-  id                  String               @id @default(uuid())
-  email               String               @unique
-  childName           String
-  childAge            Int
-  parentPhone         String
-  shopifyCustomerId   String?
-  lmsUserId           String?
-  gamesUserId         String?
-  promoCardRedeemed   Boolean?             @default(false)
-  starterCoinCredited Boolean?             @default(false)
-  status              UserStatus?          @default(ACTIVE)
-  preferredLanguage   String?              @default("en")
-  createdAt           DateTime?            @default(now()) @db.Timestamp(6)
-  updatedAt           DateTime?            @default(now()) @updatedAt @db.Timestamp(6)
-  DailyRewardTracker  DailyRewardTracker[]
-  LoginStreak         LoginStreak?
-  PlaySession         PlaySession[]
-  redemptions         Redemption[]
-  wallet              Wallet?
+  id                 String               @id @default(uuid())
+  email              String               @unique
+  childName          String
+  childAge           Int
+  parentPhone        String
+  shopifyCustomerId  String?
+  lmsUserId          String?
+  promoCardRedeemed  Boolean?             @default(false)
+  status             UserStatus?          @default(ACTIVE)
+  preferredLanguage  String?              @default("en")
+  createdAt          DateTime?            @default(now()) @db.Timestamp(6)
+  updatedAt          DateTime?            @default(now()) @updatedAt @db.Timestamp(6)
+  DailyRewardTracker DailyRewardTracker[]
+  LoginStreak        LoginStreak?
+  PlaySession        PlaySession[]
+  redemptions        Redemption[]
+  wallet             Wallet?
 }
 
 model Wallet {
@@ -284,7 +282,6 @@ model EarningRule {
   baseCoins          Int
   multiplier         Float?          @default(1.0)
   dailyCap           Int?
-  totalCap           Int?
   requiresModeration Boolean?        @default(false)
   isActive           Boolean?        @default(true)
   activeFrom         DateTime?       @db.Timestamp(6)
@@ -304,7 +301,6 @@ model Redemption {
   status                 RedemptionStatus @default(PENDING)
   cartId                 String?
   expiresAt              DateTime         @db.Timestamp(6)
-  appliedAt              DateTime?        @db.Timestamp(6)
   shopifyOrderId         String?
   createdAt              DateTime?        @default(now()) @db.Timestamp(6)
   updatedAt              DateTime?        @default(now()) @updatedAt @db.Timestamp(6)
