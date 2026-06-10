@@ -840,4 +840,36 @@ router.get('/all', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch wallets' });
   }
 });
+
+// GET /wallet/profile
+router.get('/profile', authMiddleware, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { childName: true, childAge: true, parentPhone: true, email: true },
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+});
+
+// PUT /wallet/profile
+router.put('/profile', authMiddleware, async (req, res) => {
+  try {
+    const { childName, childAge, parentPhone } = req.body;
+    const updated = await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        childName: childName || '',
+        childAge: Number(childAge) || 0,
+        parentPhone: parentPhone || '',
+      },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
 export default router;

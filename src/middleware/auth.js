@@ -40,9 +40,9 @@ const authMiddleware = async (req, res, next) => {
   data: {
     id: user.id,
     email: user.email,
-    childName: "New Player",
-    childAge: 10,
-    parentPhone: "9876543211",
+    childName: "",
+    childAge: 0,
+    parentPhone: "",
   },
 });
 
