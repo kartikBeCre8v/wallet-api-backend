@@ -14,15 +14,24 @@ export async function updateLoginStreak(
   if (!streak) {
 
     streak =
-      await prisma.loginStreak.create({
-        data: {
-          userId,
-          currentStreak: 1,
-          lastLoginDate: new Date(),
-        },
-      });
+  await prisma.loginStreak.create({
+    data: {
+      userId,
+      currentStreak: 1,
+      lastLoginDate: new Date(),
+    },
+  });
 
-    return streak;
+await prisma.wallet.updateMany({
+  where: {
+    userId,
+  },
+  data: {
+    streak_days: streak.currentStreak,
+  },
+});
+
+return streak;
   }
 
   const now = new Date();
@@ -44,7 +53,8 @@ export async function updateLoginStreak(
     newStreak = 1;
   }
 
-  return await prisma.loginStreak.update({
+  const updatedStreak =
+  await prisma.loginStreak.update({
     where: {
       userId,
     },
@@ -54,4 +64,15 @@ export async function updateLoginStreak(
       lastLoginDate: now,
     },
   });
+
+await prisma.wallet.updateMany({
+  where: {
+    userId,
+  },
+  data: {
+    streak_days: updatedStreak.currentStreak,
+  },
+});
+
+return updatedStreak;
 }
