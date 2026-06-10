@@ -589,24 +589,8 @@ router.post("/webhook/order-paid", async (req, res) => {
     // Step 7: Ek transaction mein sab update karo
 const newBalance = Number(wallet.balance || 0) - safeDeductBalance;
 
-await prisma.$transaction([
-  prisma.redemption.update({
-    where: { id: redemption.id },
-    data: {
-      status: "USED",
-      shopifyOrderId: String(order.id),
-      usedAt: new Date(),
-    },
-  }),
-  prisma.wallet.update({
-    where: { userId: redemption.userId },
-    data: {
-      balance: { decrement: safeDeductBalance },
-      lockedCoins: { decrement: safeDeductLocked },
-      lifetimeSpent: { increment: safeDeductBalance },
-    },
-  }),
-  prisma.transaction.create({
+await prisma.$transaction(async (tx) => {
+  const spendTransaction = await tx.transaction.create({
     data: {
       walletId: wallet.id,
       type: "SPEND",
@@ -618,8 +602,28 @@ await prisma.$transaction([
       balanceAfter: newBalance,
       idempotencyKey: `webhook-order-${order.id}`,
     },
-  }),
-]);
+  });
+
+  await tx.wallet.update({
+    where: { userId: redemption.userId },
+    data: {
+      balance: { decrement: safeDeductBalance },
+      lockedCoins: { decrement: safeDeductLocked },
+      lifetimeSpent: { increment: safeDeductBalance },
+      lastActivityAt: new Date(),
+    },
+  });
+
+  await tx.redemption.update({
+    where: { id: redemption.id },
+    data: {
+      status: "USED",
+      shopifyOrderId: String(order.id),
+      usedAt: new Date(),
+      transactionId: spendTransaction.id,
+    },
+  });
+});
 
     console.log(
       `[Webhook] Order ${order.id} processed — ${redemption.coinAmount} coins deducted for user ${redemption.userId}`
