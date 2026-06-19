@@ -499,9 +499,22 @@ const rule = await prisma.earningRule.findUnique({
       const streak =
         await updateLoginStreak(userId);
 
-      let streakBonus = null;
+let streakBonus = null;
 
 if (Number(streak.currentStreak) === 7) {
+  await rewardUser({
+    userId,
+    amount: 100,
+    description: "7 day streak bonus",
+    source: "STREAK_BONUS",
+    sourcePlatform: "SYSTEM",
+    referenceId: "7-day-streak",
+    metadata: {
+      streakDays: 7
+    },
+    idempotencyKey: `streak-bonus-${userId}-7`
+  });
+
   streakBonus = {
     days: 7,
     coins: 100,
@@ -510,6 +523,19 @@ if (Number(streak.currentStreak) === 7) {
 }
 
 if (Number(streak.currentStreak) === 30) {
+  await rewardUser({
+    userId,
+    amount: 500,
+    description: "30 day streak bonus",
+    source: "STREAK_BONUS",
+    sourcePlatform: "SYSTEM",
+    referenceId: "30-day-streak",
+    metadata: {
+      streakDays: 30
+    },
+    idempotencyKey: `streak-bonus-${userId}-30`
+  });
+
   streakBonus = {
     days: 30,
     coins: 500,
