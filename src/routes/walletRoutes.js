@@ -499,10 +499,29 @@ const rule = await prisma.earningRule.findUnique({
       const streak =
         await updateLoginStreak(userId);
 
-      return res.json({
-        success: true,
-        streak
-      });
+      let streakBonus = null;
+
+if (Number(streak.currentStreak) === 7) {
+  streakBonus = {
+    days: 7,
+    coins: 100,
+    message: "7 day streak bonus"
+  };
+}
+
+if (Number(streak.currentStreak) === 30) {
+  streakBonus = {
+    days: 30,
+    coins: 500,
+    message: "30 day streak bonus"
+  };
+}
+
+return res.json({
+  success: true,
+  streak,
+  streakBonus
+});
 
     } catch (err) {
 
