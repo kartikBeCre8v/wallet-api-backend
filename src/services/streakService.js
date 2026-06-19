@@ -75,4 +75,17 @@ await prisma.wallet.updateMany({
 });
 
 return updatedStreak;
+
+}
+
+export async function getLoginStreak(userId) {
+  const streak = await prisma.loginStreak.findUnique({
+    where: {
+      userId,
+    },
+  });
+
+  return {
+    currentStreak: streak?.currentStreak || 0,
+  };
 }

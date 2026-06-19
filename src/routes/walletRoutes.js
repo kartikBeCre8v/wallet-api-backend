@@ -12,7 +12,7 @@ import {
 } from '../services/sessionService.js';
 
 import {
-  updateLoginStreak
+  updateLoginStreak, getLoginStreak 
 } from '../services/streakService.js';
 
 const router = express.Router();
@@ -515,7 +515,27 @@ const rule = await prisma.earningRule.findUnique({
     }
 
   }
+);router.get(
+  '/login-streak',
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const streak = await getLoginStreak(req.user.id);
+
+      return res.json({
+        currentStreak: streak.currentStreak
+      });
+
+    } catch (err) {
+      console.error("Get login streak failed:", err);
+
+      return res.status(500).json({
+        error: "Failed to fetch login streak"
+      });
+    }
+  }
 );
+
 router.post(
   '/high-score',
   authMiddleware,
