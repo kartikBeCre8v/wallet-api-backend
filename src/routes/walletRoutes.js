@@ -1008,7 +1008,7 @@ const coinsPerHour =
   rateCoins / (totalHoursPlayed + SMOOTHING_HOURS);
 
       return {
-
+        userId: user.id,
         name:
           user.childName ||
           user.email,
