@@ -906,6 +906,107 @@ router.get('/all', async (req, res) => {
   }
 });
 
+router.get('/leaderboard/coins-per-hour', async (req, res) => {
+
+  try {
+
+    const users = await prisma.user.findMany({
+
+      include: {
+
+        wallet: {
+          include: {
+            transactions: {
+              where: {
+                type: "EARN"
+              }
+            }
+          }
+        },
+
+        PlaySession: true
+
+      }
+
+    });
+
+    const leaderboard = users.map(user => {
+
+      const totalCoinsEarned =
+        user.wallet?.transactions.reduce(
+          (sum, tx) => sum + Number(tx.amount),
+          0
+        ) || 0;
+
+
+      const totalSecondsPlayed =
+        user.PlaySession.reduce((sum, session) => {
+
+          if (!session.endedAt) return sum;
+
+          const duration =
+            (
+              new Date(session.endedAt)
+              -
+              new Date(session.startedAt)
+            ) / 1000;
+
+          return sum + duration;
+
+        }, 0);
+
+
+      const totalHoursPlayed =
+        totalSecondsPlayed / 3600;
+
+
+      const coinsPerHour =
+        totalHoursPlayed > 0
+          ? totalCoinsEarned / totalHoursPlayed
+          : 0;
+
+
+      return {
+
+        name:
+          user.childName ||
+          user.email,
+
+        totalCoinsEarned,
+
+        totalHoursPlayed:
+          Number(totalHoursPlayed.toFixed(2)),
+
+        coinsPerHour:
+          Number(coinsPerHour.toFixed(2))
+
+      };
+
+    });
+
+
+    leaderboard.sort(
+      (a, b) =>
+        b.coinsPerHour - a.coinsPerHour
+    );
+
+
+    return res.json(leaderboard);
+
+  }
+
+  catch (err) {
+
+    console.error(err);
+
+    return res.status(500).json({
+      error: "Leaderboard failed"
+    });
+
+  }
+
+});
+
 // GET /wallet/profile
 router.get('/profile', authMiddleware, async (req, res) => {
   try {
