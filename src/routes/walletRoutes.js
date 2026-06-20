@@ -1048,6 +1048,88 @@ const coinsPerHour =
 
 });
 
+router.get('/leaderboard/weekly', authMiddleware, async (req, res) => {
+
+  try {
+
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const users = await prisma.user.findMany({
+
+      include: {
+
+        wallet: {
+          include: {
+            transactions: {
+              where: {
+                type: "EARN",
+                createdAt: { gte: startOfWeek }
+              }
+            }
+          }
+        },
+
+        PlaySession: {
+          where: {
+            startedAt: { gte: startOfWeek }
+          }
+        }
+
+      }
+
+    });
+
+    const SMOOTHING_HOURS = 1.5;
+    const RATE_SOURCES = ["GAME_COMPLETED", "PLAY_SESSION"];
+
+    const leaderboard = users.map(user => {
+
+      const totalCoinsEarned =
+        user.wallet?.transactions.reduce(
+          (sum, tx) => sum + Number(tx.amount),
+          0
+        ) || 0;
+
+      const rateCoins = user.wallet?.transactions
+        .filter(tx => RATE_SOURCES.includes(tx.source))
+        .reduce((sum, tx) => sum + Number(tx.amount), 0) || 0;
+
+      const totalSecondsPlayed =
+        user.PlaySession.reduce((sum, session) => {
+          if (!session.endedAt) return sum;
+          const duration =
+            (new Date(session.endedAt) - new Date(session.startedAt)) / 1000;
+          return sum + duration;
+        }, 0);
+
+      const totalHoursPlayed = totalSecondsPlayed / 3600;
+
+      const coinsPerHour =
+        rateCoins / (totalHoursPlayed + SMOOTHING_HOURS);
+
+      return {
+        userId: user.id,
+        name: user.childName || user.email,
+        totalCoinsEarned,
+        totalHoursPlayed: Number(totalHoursPlayed.toFixed(2)),
+        coinsPerHour: Number(coinsPerHour.toFixed(2))
+      };
+
+    }).filter(p => p.totalCoinsEarned > 0);
+
+    leaderboard.sort((a, b) => b.coinsPerHour - a.coinsPerHour);
+
+    return res.json(leaderboard);
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Weekly leaderboard failed" });
+  }
+
+});
+
 // GET /wallet/profile
 router.get('/profile', authMiddleware, async (req, res) => {
   try {
