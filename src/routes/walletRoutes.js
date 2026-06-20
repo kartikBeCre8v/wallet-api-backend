@@ -581,6 +581,41 @@ return res.json({
   }
 );
 
+router.get(
+  '/stats',
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const startOfWeek = new Date();
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+
+      const totalGamesPlayed = await prisma.playSession.count({
+        where: { userId: req.user.id }
+      });
+
+      const gamesThisWeek = await prisma.playSession.count({
+        where: {
+          userId: req.user.id,
+          createdAt: { gte: startOfWeek }
+        }
+      });
+
+      return res.json({
+        totalGamesPlayed,
+        gamesThisWeek
+      });
+
+    } catch (err) {
+      console.error("Get stats failed:", err);
+
+      return res.status(500).json({
+        error: "Failed to fetch stats"
+      });
+    }
+  }
+);
+
 router.post(
   '/high-score',
   authMiddleware,
@@ -906,7 +941,7 @@ router.get('/all', async (req, res) => {
   }
 });
 
-router.get('/leaderboard/coins-per-hour', async (req, res) => {
+router.get('/leaderboard/coins-per-hour', authMiddleware, async (req, res) => {
 
   try {
 
