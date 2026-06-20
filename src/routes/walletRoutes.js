@@ -929,7 +929,8 @@ router.get('/leaderboard/coins-per-hour', async (req, res) => {
       }
 
     });
-
+const SMOOTHING_HOURS = 1.5;
+const RATE_SOURCES = ["GAME_COMPLETED", "PLAY_SESSION"];
     const leaderboard = users.map(user => {
 
       const totalCoinsEarned =
@@ -938,6 +939,9 @@ router.get('/leaderboard/coins-per-hour', async (req, res) => {
           0
         ) || 0;
 
+        const rateCoins = user.wallet?.transactions
+        .filter(tx => RATE_SOURCES.includes(tx.source))
+        .reduce((sum, tx) => sum + Number(tx.amount), 0) || 0;
 
       const totalSecondsPlayed =
         user.PlaySession.reduce((sum, session) => {
@@ -960,11 +964,13 @@ router.get('/leaderboard/coins-per-hour', async (req, res) => {
         totalSecondsPlayed / 3600;
 
 
-      const coinsPerHour =
-        totalHoursPlayed > 0
-          ? totalCoinsEarned / totalHoursPlayed
-          : 0;
+      // const coinsPerHour =
+      //   totalHoursPlayed > 0
+      //     ? totalCoinsEarned / totalHoursPlayed
+      //     : 0;
 
+const coinsPerHour =
+  rateCoins / (totalHoursPlayed + SMOOTHING_HOURS);
 
       return {
 
@@ -982,7 +988,7 @@ router.get('/leaderboard/coins-per-hour', async (req, res) => {
 
       };
 
-    });
+    }).filter(p => p.totalHoursPlayed >= 1);
 
 
     leaderboard.sort(
