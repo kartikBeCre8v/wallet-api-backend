@@ -7,6 +7,35 @@ import { deactivateShopifyDiscountCode } from "../services/shopifyService.js";
 
 const router = express.Router();
 
+async function getProductRedemptionRule(selectedItem, globalCapPercent) {
+  const productRule = await prisma.productRedemptionRule.findFirst({
+    where: {
+      shopifyProductId: String(selectedItem.productId),
+      shopifyVariantId: null,
+      isActive: true,
+    },
+    orderBy: {
+      priority: "desc",
+    },
+  });
+
+  if (productRule) {
+    return {
+      allowed: productRule.coinsRedeemable,
+      capPercent: Number(productRule.maxRedemptionPercent),
+      maxRupeeCap: Number(productRule.maxRupeeCap || 0),
+      source: "PRODUCT_RULE",
+    };
+  }
+
+  return {
+    allowed: true,
+    capPercent: Number(globalCapPercent),
+    maxRupeeCap: 0,
+    source: "GLOBAL_CONFIG",
+  };
+}
+
 // POST /shopify/link-user
 router.post("/link-user", async (req, res) => {
   try {
@@ -109,9 +138,27 @@ if (!selectedItem) {
   });
 }
 
-    const maxDiscountPaise = Math.floor(
-  (Number(selectedItem.finalLinePrice) * redemptionCapPercent) / 100
+ const productRule = await getProductRedemptionRule(
+  selectedItem,
+  redemptionCapPercent
 );
+
+if (!productRule.allowed) {
+  return res.status(400).json({
+    error: "Coins redemption is not allowed for this product",
+  });
+}
+
+let maxDiscountPaise = Math.floor(
+  (Number(selectedItem.finalLinePrice) * productRule.capPercent) / 100
+);
+
+if (productRule.maxRupeeCap > 0) {
+  maxDiscountPaise = Math.min(
+    maxDiscountPaise,
+    productRule.maxRupeeCap * 100
+  );
+}
 
     const maxRedeemableCoins = Math.floor(
       maxDiscountPaise / coinValuePaise
@@ -129,7 +176,10 @@ const recommendedRedeem = Math.min(
     res.json({
       userBalance: Number(user.wallet.balance || 0),
       coinValuePaise,
-      redemptionCapPercent,
+      redemptionCapPercent: productRule.capPercent,
+capSource: productRule.source,
+selectedProductId: String(selectedItem.productId),
+selectedVariantId: String(selectedItem.variantId),
       maxRedeemableCoins,
       recommendedRedeem,
       discountPaise: recommendedRedeem * coinValuePaise,
@@ -207,18 +257,6 @@ if (existingPending) {
     const coinValuePaise = Number(config?.coinValuePaise || 10);
     const redemptionCapPercent = Number(config?.redemptionCapPercent || 20);
 
-    // const maxDiscountPaise = Math.floor(
-    //   (Number(cartTotalPaise) * redemptionCapPercent) / 100
-    // );
-
-    // const maxCoinsByCart = Math.floor(maxDiscountPaise / coinValuePaise);
-
-    // if (Number(coinAmount) > maxCoinsByCart) {
-    //   return res.status(400).json({
-    //     error: "Coin amount exceeds redemption limit",
-    //   });
-    // }
-
 
     if (!Array.isArray(cartItems) || cartItems.length === 0) {
   return res.status(400).json({
@@ -236,9 +274,27 @@ if (!selectedItem) {
   });
 }
 
-const maxDiscountPaise = Math.floor(
-  (Number(selectedItem.finalLinePrice) * redemptionCapPercent) / 100
+const productRule = await getProductRedemptionRule(
+  selectedItem,
+  redemptionCapPercent
 );
+
+if (!productRule.allowed) {
+  return res.status(400).json({
+    error: "Coins redemption is not allowed for this product",
+  });
+}
+
+let maxDiscountPaise = Math.floor(
+  (Number(selectedItem.finalLinePrice) * productRule.capPercent) / 100
+);
+
+if (productRule.maxRupeeCap > 0) {
+  maxDiscountPaise = Math.min(
+    maxDiscountPaise,
+    productRule.maxRupeeCap * 100
+  );
+}
 
 const maxCoinsBySelectedProduct = Math.floor(
   maxDiscountPaise / coinValuePaise
