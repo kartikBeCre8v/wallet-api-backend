@@ -8,10 +8,9 @@ import { deactivateShopifyDiscountCode } from "../services/shopifyService.js";
 const router = express.Router();
 
 async function getProductRedemptionRule(selectedItem, globalCapPercent) {
-  const productRule = await prisma.productRedemptionRule.findFirst({
+  const variantRule = await prisma.productRedemptionRule.findFirst({
     where: {
-      shopifyProductId: String(selectedItem.productId),
-      shopifyVariantId: null,
+      shopifyVariantId: String(selectedItem.variantId),
       isActive: true,
     },
     orderBy: {
@@ -19,12 +18,12 @@ async function getProductRedemptionRule(selectedItem, globalCapPercent) {
     },
   });
 
-  if (productRule) {
+  if (variantRule) {
     return {
-      allowed: productRule.coinsRedeemable,
-      capPercent: Number(productRule.maxRedemptionPercent),
-      maxRupeeCap: Number(productRule.maxRupeeCap || 0),
-      source: "PRODUCT_RULE",
+      allowed: variantRule.coinsRedeemable,
+      capPercent: Number(variantRule.maxRedemptionPercent),
+      maxRupeeCap: Number(variantRule.maxRupeeCap || 0),
+      source: "VARIANT_RULE",
     };
   }
 
@@ -265,7 +264,11 @@ if (existingPending) {
 }
 
 const selectedItem = cartItems
-  .filter(item => item.variantId && item.finalLinePrice > 0)
+  .filter(
+  item =>
+    item.variantId &&
+    Number(item.finalLinePrice) > 0
+)
   .sort((a, b) => Number(b.finalLinePrice) - Number(a.finalLinePrice))[0];
 
 if (!selectedItem) {
