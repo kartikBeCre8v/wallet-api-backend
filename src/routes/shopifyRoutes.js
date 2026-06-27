@@ -90,7 +90,72 @@ router.post("/link-user", async (req, res) => {
     });
   }
 });
+router.get("/redeem/product-preview", async (req, res) => {
+  try {
+    const { variantId, pricePaise } = req.query;
 
+    if (!variantId || !pricePaise) {
+      return res.status(400).json({
+        error: "variantId and pricePaise are required",
+      });
+    }
+
+    const config = await prisma.systemConfig.findFirst();
+
+    const coinValuePaise = Number(config?.coinValuePaise || 10);
+    const globalCapPercent = Number(config?.redemptionCapPercent || 20);
+
+    const rule = await prisma.productRedemptionRule.findFirst({
+      where: {
+        shopifyVariantId: String(variantId),
+        isActive: true,
+      },
+      orderBy: {
+        priority: "desc",
+      },
+    });
+
+    const capPercent = rule
+      ? Number(rule.maxRedemptionPercent)
+      : globalCapPercent;
+
+    if (rule && rule.coinsRedeemable === false) {
+      return res.json({
+        allowed: false,
+      });
+    }
+
+    let discountPaise = Math.floor(
+      (Number(pricePaise) * capPercent) / 100
+    );
+
+    if (rule && Number(rule.maxRupeeCap || 0) > 0) {
+      discountPaise = Math.min(
+        discountPaise,
+        Number(rule.maxRupeeCap) * 100
+      );
+    }
+
+    const finalPricePaise =
+      Number(pricePaise) - discountPaise;
+
+    const coinsRequired =
+      Math.floor(discountPaise / coinValuePaise);
+
+    return res.json({
+      allowed: true,
+      capPercent,
+      finalPricePaise,
+      discountPaise,
+      coinsRequired,
+    });
+  } catch (error) {
+    console.error("Product preview error:", error);
+    return res.status(500).json({
+      error: "Product preview failed",
+    });
+  }
+});
 // POST /shopify/redeem/quote
 router.post("/redeem/quote", async (req, res) => {
   try {
